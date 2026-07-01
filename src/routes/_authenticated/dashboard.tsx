@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutGrid,
   User,
@@ -25,6 +25,10 @@ import {
   BarChart3,
   Trash2,
   RefreshCw,
+  Camera,
+  Compass,
+  ClipboardList,
+  Circle,
 } from "lucide-react";
 import { getNames } from "country-list";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,9 +73,117 @@ type AnalysisRow = {
   created_at: string;
 };
 
-type View = "analyzer" | "profile" | "history";
-
 const COUNTRY_NAMES: string[] = getNames().sort((a, b) => a.localeCompare(b));
+
+type View = "analyzer" | "profile" | "history" | "recommendations" | "applications";
+
+export type Stage =
+  | "applied"
+  | "preparing_test"
+  | "preparing_interview"
+  | "interview_scheduled"
+  | "denied"
+  | "offer";
+
+export const STAGE_LABEL: Record<Stage, string> = {
+  applied: "Applied",
+  preparing_test: "Preparing for Test",
+  preparing_interview: "Preparing for Interview",
+  interview_scheduled: "Interview Scheduled",
+  denied: "Denied",
+  offer: "Offer",
+};
+
+export const STAGES_ORDERED: Stage[] = [
+  "applied",
+  "preparing_test",
+  "preparing_interview",
+  "interview_scheduled",
+  "offer",
+  "denied",
+];
+
+type SavedJob = {
+  id: string;
+  user_id: string;
+  company_name: string;
+  job_title: string;
+  job_description: string;
+  applied: boolean;
+  created_at: string;
+};
+
+type JobApplication = {
+  id: string;
+  user_id: string;
+  saved_job_id: string | null;
+  company_name: string;
+  job_title: string;
+  job_description: string;
+  stage: Stage;
+  notes: string | null;
+  updated_at: string;
+  created_at: string;
+};
+
+type RecommendedJob = {
+  key: string;
+  company_name: string;
+  job_title: string;
+  location: string;
+  job_description: string;
+};
+
+const RECOMMENDED_JOBS: RecommendedJob[] = [
+  {
+    key: "stripe-be",
+    company_name: "Stripe",
+    job_title: "Senior Backend Engineer",
+    location: "Remote · EMEA",
+    job_description:
+      "Design and operate high-throughput payment APIs in Go and Ruby. 5+ years backend, distributed systems, PostgreSQL, event-driven architectures. Strong write-up culture; on-call rotation. Remote within EMEA time zones.",
+  },
+  {
+    key: "linear-fe",
+    company_name: "Linear",
+    job_title: "Product Engineer, Frontend",
+    location: "Remote · Global",
+    job_description:
+      "Build the fastest issue-tracker in the world. React, TypeScript, GraphQL. Deep taste for interaction design. 3+ years shipping user-facing product. Written communication essential.",
+  },
+  {
+    key: "andela-ds",
+    company_name: "Andela",
+    job_title: "Data Scientist (Remote)",
+    location: "Remote · Africa & LATAM",
+    job_description:
+      "Support enterprise clients with predictive modelling. Python, SQL, scikit-learn, cloud (AWS or GCP). Communicate insights to non-technical stakeholders. 3+ years experience. English fluency required.",
+  },
+  {
+    key: "safaricom-mob",
+    company_name: "Safaricom",
+    job_title: "Mobile Engineer (Android)",
+    location: "Nairobi, Kenya · Hybrid",
+    job_description:
+      "Build M-Pesa consumer experiences for millions of users. Kotlin, Jetpack Compose, offline-first patterns. 4+ years native Android. Right to work in Kenya required.",
+  },
+  {
+    key: "shopify-plat",
+    company_name: "Shopify",
+    job_title: "Platform Reliability Engineer",
+    location: "Remote · Americas & EMEA",
+    job_description:
+      "Own observability, incident response, and capacity planning across storefront edge. Ruby, MySQL, Kafka. 4+ years SRE. On-call ownership. Deep Linux systems knowledge.",
+  },
+  {
+    key: "notion-growth",
+    company_name: "Notion",
+    job_title: "Growth Engineer",
+    location: "Remote · US timezones",
+    job_description:
+      "Ship activation experiments across web onboarding. TypeScript, React, SQL, A/B testing. Bias to shipping. 3+ years growth or product engineering. Comfort with data and copy.",
+  },
+];
 
 /* ============== Root ============== */
 
@@ -84,6 +196,10 @@ function Dashboard() {
   const [history, setHistory] = useState<AnalysisRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [trackerLoading, setTrackerLoading] = useState(true);
+  const [trackerError, setTrackerError] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     setProfileLoading(true);
@@ -123,10 +239,30 @@ function Dashboard() {
     }
   }, []);
 
+  const loadTracker = useCallback(async () => {
+    setTrackerLoading(true);
+    setTrackerError(null);
+    try {
+      const [savedRes, appsRes] = await Promise.all([
+        supabase.from("saved_jobs").select("*").order("created_at", { ascending: false }),
+        supabase.from("job_applications").select("*").order("updated_at", { ascending: false }),
+      ]);
+      if (savedRes.error) throw savedRes.error;
+      if (appsRes.error) throw appsRes.error;
+      setSavedJobs((savedRes.data as SavedJob[]) ?? []);
+      setApplications((appsRes.data as JobApplication[]) ?? []);
+    } catch (e) {
+      setTrackerError(e instanceof Error ? e.message : "Failed to load applications");
+    } finally {
+      setTrackerLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadProfile();
     loadHistory();
-  }, [loadProfile, loadHistory]);
+    loadTracker();
+  }, [loadProfile, loadHistory, loadTracker]);
 
   async function onSignOut() {
     await supabase.auth.signOut();
@@ -141,6 +277,7 @@ function Dashboard() {
         profile={profile}
         loading={profileLoading}
         onSignOut={onSignOut}
+        onAvatarUpdated={loadProfile}
       />
       <main className="flex-1 min-w-0">
         <TopBar view={view} />
@@ -167,6 +304,22 @@ function Dashboard() {
               onDeleted={loadHistory}
             />
           )}
+          {view === "recommendations" && (
+            <RecommendationsView
+              savedJobs={savedJobs}
+              loading={trackerLoading}
+              error={trackerError}
+              onChanged={loadTracker}
+            />
+          )}
+          {view === "applications" && (
+            <ApplicationsView
+              applications={applications}
+              loading={trackerLoading}
+              error={trackerError}
+              onChanged={loadTracker}
+            />
+          )}
         </div>
       </main>
     </div>
@@ -186,46 +339,131 @@ function locationLabel(p: Profile | null): string {
   return [p.city, p.country].filter(Boolean).join(", ");
 }
 
+const AVATAR_ACCEPT = ["image/jpeg", "image/png", "image/webp"];
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+
 function Sidebar({
   view,
   setView,
   profile,
   loading,
   onSignOut,
+  onAvatarUpdated,
 }: {
   view: View;
   setView: (v: View) => void;
   profile: Profile | null;
   loading: boolean;
   onSignOut: () => void;
+  onAvatarUpdated: () => void;
 }) {
   const items: { key: View; label: string; icon: typeof LayoutGrid }[] = [
     { key: "analyzer", label: "Suitability Analyzer", icon: LayoutGrid },
     { key: "profile", label: "My Profile & Resume", icon: User },
+    { key: "recommendations", label: "Recommended Jobs", icon: Compass },
+    { key: "applications", label: "My Applications", icon: ClipboardList },
     { key: "history", label: "Analysis History", icon: History },
   ];
   const name = profile?.full_name || profile?.email?.split("@")[0] || "Signed in";
   const loc = locationLabel(profile);
   const sub = loc || profile?.email || "Set your location";
 
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const displayAvatar = preview || profile?.avatar_url || null;
+
+  async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadError(null);
+    if (!AVATAR_ACCEPT.includes(file.type)) {
+      setUploadError("Please choose a JPG, PNG, or WEBP image.");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setUploadError("Image must be 2MB or smaller.");
+      return;
+    }
+    const localUrl = URL.createObjectURL(file);
+    setPreview(localUrl);
+    setUploading(true);
+    try {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw userErr ?? new Error("Not signed in");
+      const uid = userData.user.id;
+      const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const path = `${uid}/avatar.${ext}`;
+      // Remove any existing avatar files to prevent duplicates across extensions.
+      const { data: existing } = await supabase.storage.from("avatars").list(uid);
+      if (existing && existing.length > 0) {
+        const toRemove = existing.map((o) => `${uid}/${o.name}`);
+        await supabase.storage.from("avatars").remove(toRemove);
+      }
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = `${pub.publicUrl}?v=${Date.now()}`;
+      const { error: updErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("id", uid);
+      if (updErr) throw updErr;
+      onAvatarUpdated();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      setTimeout(() => {
+        setPreview((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+      }, 800);
+    }
+  }
+
   return (
     <aside className="w-72 shrink-0 bg-white border-r border-border flex flex-col">
       <div className="p-6 border-b border-border">
         <div className="flex items-center gap-3">
-          {profile?.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt=""
-              className="h-12 w-12 rounded-full object-cover ring-2 ring-[color:var(--royal)] ring-offset-2 ring-offset-white"
-            />
-          ) : (
-            <div
-              className="h-12 w-12 rounded-full grid place-items-center text-white font-display font-bold ring-2 ring-[color:var(--royal)] ring-offset-2 ring-offset-white"
-              style={{ background: "var(--gradient-blue)" }}
+          <div className="relative">
+            {displayAvatar ? (
+              <img
+                src={displayAvatar}
+                alt=""
+                className="h-12 w-12 rounded-full object-cover ring-2 ring-[color:var(--royal)] ring-offset-2 ring-offset-white"
+              />
+            ) : (
+              <div
+                className="h-12 w-12 rounded-full grid place-items-center text-white font-display font-bold ring-2 ring-[color:var(--royal)] ring-offset-2 ring-offset-white"
+                style={{ background: "var(--gradient-blue)" }}
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : initialsOf(profile?.full_name, profile?.email)}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              aria-label="Change profile photo"
+              className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-[color:var(--royal)] text-white grid place-items-center border-2 border-white hover:bg-[color:var(--ocean)] transition-colors disabled:opacity-70"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : initialsOf(profile?.full_name, profile?.email)}
-            </div>
-          )}
+              {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              onChange={onFileSelected}
+              className="hidden"
+            />
+          </div>
           <div className="min-w-0">
             <div className="font-semibold text-[color:var(--deep)] truncate">
               {loading ? "Loading…" : name}
@@ -233,9 +471,14 @@ function Sidebar({
             <div className="text-xs text-[color:var(--slate-blue)] truncate">{sub}</div>
           </div>
         </div>
+        {uploadError && (
+          <div className="mt-3 text-xs text-[color:var(--royal)] bg-[color:var(--ice)] border border-[color:var(--royal)]/20 rounded-md px-3 py-2">
+            {uploadError}
+          </div>
+        )}
       </div>
 
-      <nav className="p-3 flex-1 space-y-1">
+      <nav className="p-3 flex-1 space-y-1 overflow-y-auto">
         {items.map((it) => {
           const active = view === it.key;
           return (
@@ -276,13 +519,29 @@ function Sidebar({
 }
 
 function TopBar({ view }: { view: View }) {
-  const title = view === "analyzer" ? "Suitability Analyzer" : view === "profile" ? "My Profile & Resume" : "Analysis History";
-  const sub =
-    view === "analyzer"
-      ? "Paste a job description and let the agent decide if it's worth applying."
-      : view === "profile"
-      ? "Upload your resume and set your location for tailored matching."
-      : "Every audit you've run, searchable and filterable.";
+  const meta: Record<View, { title: string; sub: string }> = {
+    analyzer: {
+      title: "Suitability Analyzer",
+      sub: "Paste a job description and let the agent decide if it's worth applying.",
+    },
+    profile: {
+      title: "My Profile & Resume",
+      sub: "Upload your resume and set your location for tailored matching.",
+    },
+    history: {
+      title: "Analysis History",
+      sub: "Every audit you've run, searchable and filterable.",
+    },
+    recommendations: {
+      title: "Recommended Jobs",
+      sub: "Curated roles worth a look. Mark the ones you actually apply to.",
+    },
+    applications: {
+      title: "My Applications",
+      sub: "Track every application from applied through offer.",
+    },
+  };
+  const { title, sub } = meta[view];
   return (
     <div className="bg-white border-b border-border">
       <div className="max-w-6xl mx-auto px-8 py-5">
@@ -1240,6 +1499,350 @@ function HistoryView({
           </tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+/* ============== Recommendations View ============== */
+
+function RecommendationsView({
+  savedJobs,
+  loading,
+  error,
+  onChanged,
+}: {
+  savedJobs: SavedJob[];
+  loading: boolean;
+  error: string | null;
+  onChanged: () => void;
+}) {
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const savedByKey = useMemo(() => {
+    // Match built-in recommendations with any saved rows the user already toggled.
+    const map = new Map<string, SavedJob>();
+    for (const s of savedJobs) {
+      map.set(`${s.company_name}::${s.job_title}`, s);
+    }
+    return map;
+  }, [savedJobs]);
+
+  async function markApplied(job: RecommendedJob) {
+    setBusyKey(job.key);
+    setLocalError(null);
+    try {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw userErr ?? new Error("Not signed in");
+      const uid = userData.user.id;
+
+      const existing = savedByKey.get(`${job.company_name}::${job.job_title}`);
+      let savedId: string;
+      if (existing) {
+        const { error: updErr } = await supabase
+          .from("saved_jobs")
+          .update({ applied: true })
+          .eq("id", existing.id);
+        if (updErr) throw updErr;
+        savedId = existing.id;
+      } else {
+        const { data: inserted, error: insErr } = await supabase
+          .from("saved_jobs")
+          .insert({
+            user_id: uid,
+            company_name: job.company_name,
+            job_title: job.job_title,
+            job_description: job.job_description,
+            applied: true,
+          })
+          .select("id")
+          .single();
+        if (insErr) throw insErr;
+        savedId = (inserted as { id: string }).id;
+      }
+
+      const { error: appErr } = await supabase.from("job_applications").insert({
+        user_id: uid,
+        saved_job_id: savedId,
+        company_name: job.company_name,
+        job_title: job.job_title,
+        job_description: job.job_description,
+        stage: "applied",
+      });
+      if (appErr) throw appErr;
+
+      onChanged();
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : "Failed to mark applied");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function markNotApplied(job: RecommendedJob) {
+    const existing = savedByKey.get(`${job.company_name}::${job.job_title}`);
+    if (!existing) return;
+    setBusyKey(job.key);
+    setLocalError(null);
+    try {
+      const { error: updErr } = await supabase
+        .from("saved_jobs")
+        .update({ applied: false })
+        .eq("id", existing.id);
+      if (updErr) throw updErr;
+      onChanged();
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : "Failed to update");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {(error || localError) && (
+        <div className="rounded-lg border border-[color:var(--royal)]/20 bg-white p-4 text-sm text-[color:var(--royal)]">
+          {error || localError}
+        </div>
+      )}
+      <div className="grid md:grid-cols-2 gap-4">
+        {RECOMMENDED_JOBS.map((job) => {
+          const existing = savedByKey.get(`${job.company_name}::${job.job_title}`);
+          const applied = !!existing?.applied;
+          const busy = busyKey === job.key || loading;
+          return (
+            <div
+              key={job.key}
+              className="rounded-xl border border-border bg-white p-5 flex flex-col gap-3 shadow-[var(--shadow-card)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-[color:var(--ocean)]">
+                    {job.company_name}
+                  </div>
+                  <div className="font-semibold text-[color:var(--deep)] truncate">{job.job_title}</div>
+                  <div className="text-xs text-[color:var(--slate-blue)] mt-1 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {job.location}
+                  </div>
+                </div>
+                <div
+                  className={`shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full border ${
+                    applied
+                      ? "bg-[color:var(--royal)] text-white border-[color:var(--royal)]"
+                      : "bg-white text-[color:var(--slate-blue)] border-border"
+                  }`}
+                >
+                  {applied ? "Applied" : "Not applied"}
+                </div>
+              </div>
+              <p className="text-sm text-[color:var(--slate-blue)] line-clamp-4">{job.job_description}</p>
+              <div className="mt-auto flex items-center gap-2">
+                {applied ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => markNotApplied(job)}
+                    className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-3 py-2 text-xs font-semibold text-[color:var(--slate-blue)] hover:bg-[color:var(--ice)] disabled:opacity-60"
+                  >
+                    {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Circle className="h-3 w-3" />}
+                    Mark not applied
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => markApplied(job)}
+                    className="inline-flex items-center gap-2 rounded-md bg-[color:var(--royal)] px-3 py-2 text-xs font-semibold text-white hover:bg-[color:var(--ocean)] disabled:opacity-60"
+                  >
+                    {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                    I applied
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ============== Applications View ============== */
+
+function ApplicationsView({
+  applications,
+  loading,
+  error,
+  onChanged,
+}: {
+  applications: JobApplication[];
+  loading: boolean;
+  error: string | null;
+  onChanged: () => void;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [stageFilter, setStageFilter] = useState<Stage | "all">("all");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return applications.filter((a) => {
+      if (stageFilter !== "all" && a.stage !== stageFilter) return false;
+      if (!q) return true;
+      return (
+        a.company_name.toLowerCase().includes(q) ||
+        a.job_title.toLowerCase().includes(q)
+      );
+    });
+  }, [applications, query, stageFilter]);
+
+  async function changeStage(app: JobApplication, next: Stage) {
+    if (app.stage === next) return;
+    setBusyId(app.id);
+    setLocalError(null);
+    try {
+      const { error: err } = await supabase
+        .from("job_applications")
+        .update({ stage: next, updated_at: new Date().toISOString() })
+        .eq("id", app.id);
+      if (err) throw err;
+      onChanged();
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : "Failed to update stage");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function removeApp(app: JobApplication) {
+    setBusyId(app.id);
+    setLocalError(null);
+    try {
+      const { error: err } = await supabase.from("job_applications").delete().eq("id", app.id);
+      if (err) throw err;
+      onChanged();
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : "Failed to remove");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {(error || localError) && (
+        <div className="rounded-lg border border-[color:var(--royal)]/20 bg-white p-4 text-sm text-[color:var(--royal)]">
+          {error || localError}
+        </div>
+      )}
+      <div className="rounded-xl border border-border bg-white p-4 flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--slate-blue)]" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search company or role"
+            className="w-full pl-9 pr-3 py-2 rounded-md border border-border bg-white text-sm text-[color:var(--deep)] focus:outline-none focus:border-[color:var(--royal)]"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-[color:var(--slate-blue)]" />
+          <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value as Stage | "all")}
+            className="rounded-md border border-border bg-white px-3 py-2 text-sm text-[color:var(--deep)] focus:outline-none focus:border-[color:var(--royal)]"
+          >
+            <option value="all">All stages</option>
+            {STAGES_ORDERED.map((s) => (
+              <option key={s} value={s}>
+                {STAGE_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-white overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-[color:var(--ice)] text-[color:var(--slate-blue)] text-xs uppercase tracking-wider">
+            <tr>
+              <th className="text-left px-4 py-3">Company</th>
+              <th className="text-left px-4 py-3">Role</th>
+              <th className="text-left px-4 py-3">Stage</th>
+              <th className="text-left px-4 py-3">Updated</th>
+              <th className="text-right px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td colSpan={5} className="px-4 py-10 text-center text-[color:var(--slate-blue)]">
+                  <Loader2 className="h-4 w-4 inline animate-spin mr-2" />
+                  Loading applications…
+                </td>
+              </tr>
+            )}
+            {!loading && filtered.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-10 text-center text-[color:var(--slate-blue)]">
+                  No applications yet. Mark a role as applied on the Recommended Jobs page.
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              filtered.map((app) => (
+                <tr key={app.id} className="border-t border-border">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 font-medium text-[color:var(--deep)]">
+                      <Building2 className="h-4 w-4 text-[color:var(--slate-blue)]" />
+                      {app.company_name}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-[color:var(--slate-blue)]">{app.job_title}</td>
+                  <td className="px-4 py-3">
+                    <select
+                      disabled={busyId === app.id}
+                      value={app.stage}
+                      onChange={(e) => changeStage(app, e.target.value as Stage)}
+                      className="rounded-md border border-border bg-white px-2 py-1.5 text-xs text-[color:var(--deep)] focus:outline-none focus:border-[color:var(--royal)]"
+                    >
+                      {STAGES_ORDERED.map((s) => (
+                        <option key={s} value={s}>
+                          {STAGE_LABEL[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 text-[color:var(--slate-blue)] text-xs">
+                    {new Date(app.updated_at).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      <Link
+                        to="/applications/$id"
+                        params={{ id: app.id }}
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)]"
+                      >
+                        View <ChevronRight className="h-3 w-3" />
+                      </Link>
+                      <button
+                        type="button"
+                        disabled={busyId === app.id}
+                        onClick={() => removeApp(app)}
+                        aria-label="Remove application"
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-1.5 text-xs text-[color:var(--slate-blue)] hover:text-[color:var(--royal)] hover:bg-[color:var(--ice)] disabled:opacity-60"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
