@@ -286,7 +286,6 @@ function Sidebar({
   const items: { key: View; label: string; icon: typeof LayoutGrid }[] = [
     { key: "analyzer", label: "Suitability Analyzer", icon: LayoutGrid },
     { key: "profile", label: "My Profile & Resume", icon: User },
-    { key: "recommendations", label: "Recommended Jobs", icon: Compass },
     { key: "applications", label: "My Applications", icon: ClipboardList },
     { key: "history", label: "Analysis History", icon: History },
   ];
