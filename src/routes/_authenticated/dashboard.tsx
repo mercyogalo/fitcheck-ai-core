@@ -24,7 +24,9 @@ import {
   Loader2,
   BarChart3,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
+import { getNames } from "country-list";
 import { supabase } from "@/integrations/supabase/client";
 import { ScoreRing } from "../index";
 
@@ -45,7 +47,8 @@ type Profile = {
   email: string;
   full_name: string | null;
   avatar_url: string | null;
-  target_region: string | null;
+  country: string | null;
+  city: string | null;
   skills: string[];
   resume_text: string | null;
   resume_name: string | null;
@@ -68,16 +71,7 @@ type AnalysisRow = {
 
 type View = "analyzer" | "profile" | "history";
 
-const REGIONS = [
-  "East Africa",
-  "West Africa",
-  "Remote · Global",
-  "Remote · EU",
-  "Remote · US",
-  "Europe",
-  "North America",
-  "Middle East",
-];
+const COUNTRY_NAMES: string[] = getNames().sort((a, b) => a.localeCompare(b));
 
 /* ============== Root ============== */
 
@@ -187,6 +181,11 @@ function initialsOf(name: string | null | undefined, email: string | null | unde
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "•";
 }
 
+function locationLabel(p: Profile | null): string {
+  if (!p) return "";
+  return [p.city, p.country].filter(Boolean).join(", ");
+}
+
 function Sidebar({
   view,
   setView,
@@ -206,7 +205,8 @@ function Sidebar({
     { key: "history", label: "Analysis History", icon: History },
   ];
   const name = profile?.full_name || profile?.email?.split("@")[0] || "Signed in";
-  const sub = profile?.target_region || profile?.email || "Set your target region";
+  const loc = locationLabel(profile);
+  const sub = loc || profile?.email || "Set your location";
 
   return (
     <aside className="w-72 shrink-0 bg-white border-r border-border flex flex-col">
@@ -281,7 +281,7 @@ function TopBar({ view }: { view: View }) {
     view === "analyzer"
       ? "Paste a job description and let the agent decide if it's worth applying."
       : view === "profile"
-      ? "Upload your resume and set your target region for tailored matching."
+      ? "Upload your resume and set your location for tailored matching."
       : "Every audit you've run, searchable and filterable.";
   return (
     <div className="bg-white border-b border-border">
@@ -295,6 +295,9 @@ function TopBar({ view }: { view: View }) {
 
 /* ============== Profile View ============== */
 
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_EXTS = /\.(pdf|docx|txt|md)$/i;
+
 function ProfileView({
   profile,
   loading,
@@ -307,7 +310,8 @@ function ProfileView({
   onSaved: () => Promise<void>;
 }) {
   const [fullName, setFullName] = useState("");
-  const [region, setRegion] = useState<string>(REGIONS[0]);
+  const [country, setCountry] = useState<string>("");
+  const [city, setCity] = useState<string>("");
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState("");
   const [resumeText, setResumeText] = useState("");
@@ -316,53 +320,132 @@ function ProfileView({
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [pasteMode, setPasteMode] = useState(false);
+  const [replaceMode, setReplaceMode] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
     setFullName(profile.full_name ?? "");
-    setRegion(profile.target_region ?? REGIONS[0]);
+    setCountry(profile.country ?? "");
+    setCity(profile.city ?? "");
     setSkills(profile.skills ?? []);
     setResumeText(profile.resume_text ?? "");
     setResumeName(profile.resume_name);
   }, [profile]);
 
+  const hasSavedResume = !!(profile?.resume_text && profile.resume_text.trim().length >= 20);
+  const showUploader = !hasSavedResume || replaceMode;
+
+  async function persistResume(text: string, filename: string | null) {
+    if (!profile) return;
+    const { error: upErr } = await supabase
+      .from("profiles")
+      .update({ resume_text: text || null, resume_name: filename })
+      .eq("id", profile.id);
+    if (upErr) throw upErr;
+    await onSaved();
+  }
+
   async function handleFile(file: File) {
     setUploadErr(null);
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadErr("File exceeds 10 MB.");
+
+    if (!ACCEPTED_EXTS.test(file.name)) {
+      setUploadErr("Only PDF, DOCX, TXT, or MD files are supported.");
       return;
     }
-    // Client-side extraction: only plain text/markdown here.
-    // For PDF/DOCX we recommend pasting the text into the resume field.
-    const isText = file.type.startsWith("text/") || /\.(txt|md)$/i.test(file.name);
-    if (isText) {
-      const text = await file.text();
-      setResumeText(text.slice(0, 100_000));
-      setResumeName(file.name);
-    } else {
-      setResumeName(file.name);
-      setUploadErr(
-        "Binary resume detected. Please paste the plain text below — extraction from PDF/DOCX requires copy-paste for now.",
-      );
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadErr(`File exceeds ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB limit.`);
+      return;
+    }
+    if (file.size === 0) {
+      setUploadErr("That file is empty.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await supabase.functions.invoke("extract-resume-text", { body: form });
+      if (res.error) {
+        // Try to surface any JSON error body the function returned
+        let msg = res.error.message || "Extraction failed";
+        const ctx = (res.error as { context?: Response }).context;
+        if (ctx && typeof ctx.text === "function") {
+          try {
+            const body = await ctx.text();
+            const parsed = JSON.parse(body);
+            if (parsed?.error) msg = parsed.error;
+          } catch {
+            // ignore
+          }
+        }
+        setUploadErr(msg);
+        setPasteMode(true);
+        return;
+      }
+      const data = res.data as { text?: string; filename?: string } | null;
+      const text = (data?.text ?? "").trim();
+      if (!text) {
+        setUploadErr("No readable text found. Paste your resume text manually.");
+        setPasteMode(true);
+        return;
+      }
+      setResumeText(text);
+      setResumeName(data?.filename ?? file.name);
+      await persistResume(text, data?.filename ?? file.name);
+      setReplaceMode(false);
+      setPasteMode(false);
+      setSaveMsg("Resume saved.");
+      setTimeout(() => setSaveMsg(null), 2500);
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : "Extraction failed");
+      setPasteMode(true);
+    } finally {
+      setUploading(false);
     }
   }
 
-  async function save() {
+  async function savePastedResume() {
+    if (!profile) return;
+    const text = resumeText.trim();
+    if (text.length < 40) {
+      setUploadErr("Please paste at least a few sentences of your resume.");
+      return;
+    }
+    setUploading(true);
+    setUploadErr(null);
+    try {
+      const name = resumeName ?? "resume.txt";
+      await persistResume(text, name);
+      setResumeName(name);
+      setReplaceMode(false);
+      setPasteMode(false);
+      setSaveMsg("Resume saved.");
+      setTimeout(() => setSaveMsg(null), 2500);
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function saveProfile() {
     if (!profile) return;
     setSaving(true);
     setSaveMsg(null);
     try {
-      const { error } = await supabase
+      const { error: upErr } = await supabase
         .from("profiles")
         .update({
           full_name: fullName.trim() || null,
-          target_region: region || null,
+          country: country || null,
+          city: city.trim() || null,
           skills,
-          resume_text: resumeText.trim() || null,
-          resume_name: resumeName,
         })
         .eq("id", profile.id);
-      if (error) throw error;
+      if (upErr) throw upErr;
       setSaveMsg("Saved.");
       await onSaved();
     } catch (e) {
@@ -391,97 +474,176 @@ function ProfileView({
     );
   }
 
+  const savedSnippet = (profile?.resume_text ?? "").trim().slice(0, 260);
+
   return (
     <div className="grid lg:grid-cols-5 gap-6">
       <section className="lg:col-span-3 space-y-6">
         <div className="rounded-2xl bg-white border border-border p-6 shadow-[var(--shadow-card)]">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-[color:var(--deep)]">Resume</h2>
-            {resumeName && (
+            {hasSavedResume && !replaceMode && (
               <button
                 onClick={() => {
-                  setResumeName(null);
-                  setResumeText("");
+                  setReplaceMode(true);
+                  setPasteMode(false);
+                  setUploadErr(null);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[color:var(--royal)] hover:text-[color:var(--ocean)]"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Update resume
+              </button>
+            )}
+            {replaceMode && (
+              <button
+                onClick={() => {
+                  setReplaceMode(false);
+                  setPasteMode(false);
+                  setUploadErr(null);
+                  setResumeText(profile?.resume_text ?? "");
+                  setResumeName(profile?.resume_name ?? null);
                 }}
                 className="text-xs text-[color:var(--slate-blue)] hover:text-[color:var(--royal)]"
               >
-                Replace
+                Cancel
               </button>
             )}
           </div>
 
-          {!resumeName ? (
-            <label
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                const f = e.dataTransfer.files?.[0];
-                if (f) void handleFile(f);
-              }}
-              className={`mt-4 block cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
-                dragOver
-                  ? "border-[color:var(--royal)] bg-[color:var(--ice)]"
-                  : "border-border bg-[color:var(--ice)]/40 hover:bg-[color:var(--ice)]"
-              }`}
-            >
-              <input
-                type="file"
-                className="hidden"
-                accept=".txt,.md,.pdf,.doc,.docx"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void handleFile(f);
-                }}
-              />
-              <div className="mx-auto h-14 w-14 rounded-full grid place-items-center bg-white border border-border">
-                <Upload className="h-6 w-6 text-[color:var(--royal)]" />
-              </div>
-              <div className="mt-4 font-semibold text-[color:var(--deep)]">Drop your resume here</div>
-              <div className="mt-1 text-sm text-[color:var(--slate-blue)]">TXT or MD parses instantly · PDF/DOCX: paste text</div>
-              <div className="mt-5 inline-flex items-center gap-2 rounded-md bg-[color:var(--royal)] px-4 py-2 text-xs font-semibold text-white">
-                Browse files
-              </div>
-            </label>
-          ) : (
-            <div className="mt-4 flex items-center gap-3 rounded-lg border border-border bg-[color:var(--ice)] p-4">
-              <div className="h-10 w-10 rounded-md grid place-items-center bg-white border border-border">
-                <FileText className="h-5 w-5 text-[color:var(--royal)]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[color:var(--deep)] truncate">{resumeName}</div>
-                <div className="text-xs text-[color:var(--slate-blue)]">
-                  {resumeText ? `${resumeText.length.toLocaleString()} chars stored` : "No text yet — paste below"}
+          {hasSavedResume && !replaceMode ? (
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-[color:var(--ice)] p-4">
+                <div className="h-10 w-10 rounded-md grid place-items-center bg-white border border-border">
+                  <FileText className="h-5 w-5 text-[color:var(--royal)]" />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[color:var(--deep)] truncate">
+                    {profile?.resume_name ?? "resume.txt"}
+                  </div>
+                  <div className="text-xs text-[color:var(--slate-blue)]">
+                    Saved · {(profile?.resume_text ?? "").length.toLocaleString()} characters
+                  </div>
+                </div>
+                <CheckCircle2 className="h-5 w-5 text-[color:var(--royal)]" />
               </div>
-              {resumeText && <CheckCircle2 className="h-5 w-5 text-[color:var(--royal)]" />}
+              {savedSnippet && (
+                <div className="rounded-lg border border-border bg-white p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)] mb-2">
+                    Preview
+                  </div>
+                  <p className="text-sm text-[color:var(--slate-blue)] whitespace-pre-wrap line-clamp-6">
+                    {savedSnippet}
+                    {(profile?.resume_text ?? "").length > savedSnippet.length ? "…" : ""}
+                  </p>
+                </div>
+              )}
             </div>
+          ) : (
+            <>
+              {!pasteMode ? (
+                <label
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    const f = e.dataTransfer.files?.[0];
+                    if (f) void handleFile(f);
+                  }}
+                  className={`mt-4 block cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
+                    dragOver
+                      ? "border-[color:var(--royal)] bg-[color:var(--ice)]"
+                      : "border-border bg-[color:var(--ice)]/40 hover:bg-[color:var(--ice)]"
+                  } ${uploading ? "pointer-events-none opacity-60" : ""}`}
+                >
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleFile(f);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                  <div className="mx-auto h-14 w-14 rounded-full grid place-items-center bg-white border border-border">
+                    {uploading ? (
+                      <Loader2 className="h-6 w-6 text-[color:var(--royal)] animate-spin" />
+                    ) : (
+                      <Upload className="h-6 w-6 text-[color:var(--royal)]" />
+                    )}
+                  </div>
+                  <div className="mt-4 font-semibold text-[color:var(--deep)]">
+                    {uploading ? "Extracting text…" : "Drop your resume here"}
+                  </div>
+                  <div className="mt-1 text-sm text-[color:var(--slate-blue)]">
+                    PDF, DOCX, TXT or MD · up to 5 MB
+                  </div>
+                  <div className="mt-5 inline-flex items-center gap-2 rounded-md bg-[color:var(--royal)] px-4 py-2 text-xs font-semibold text-white">
+                    Browse files
+                  </div>
+                </label>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-lg border border-border bg-[color:var(--ice)] p-4 text-sm text-[color:var(--slate-blue)]">
+                    Paste the plain text of your resume below and click Save.
+                  </div>
+                  <textarea
+                    value={resumeText}
+                    onChange={(e) => setResumeText(e.target.value)}
+                    rows={10}
+                    maxLength={100_000}
+                    placeholder="Paste your resume text…"
+                    className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-[color:var(--royal)] resize-none"
+                  />
+                  <div className="flex items-center justify-between text-xs text-[color:var(--slate-blue)]">
+                    <button
+                      onClick={() => {
+                        setPasteMode(false);
+                        setUploadErr(null);
+                      }}
+                      className="hover:text-[color:var(--royal)]"
+                    >
+                      ← Back to upload
+                    </button>
+                    <span>{resumeText.length.toLocaleString()} / 100,000</span>
+                  </div>
+                  <button
+                    onClick={savePastedResume}
+                    disabled={uploading}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-[color:var(--royal)] px-4 py-2.5 text-sm font-semibold text-white shadow-[var(--shadow-blue)] hover:bg-[color:var(--ocean)] disabled:opacity-50 transition-colors"
+                  >
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save resume"}
+                  </button>
+                </div>
+              )}
+
+              {!pasteMode && (
+                <div className="mt-3 text-center">
+                  <button
+                    onClick={() => {
+                      setPasteMode(true);
+                      setUploadErr(null);
+                    }}
+                    className="text-xs text-[color:var(--slate-blue)] hover:text-[color:var(--royal)] underline"
+                  >
+                    Or paste your resume text manually
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           {uploadErr && (
-            <div className="mt-3 text-xs text-[color:var(--royal)]">{uploadErr}</div>
-          )}
-
-          <div className="mt-5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)]">
-              Resume text
-            </label>
-            <textarea
-              value={resumeText}
-              onChange={(e) => setResumeText(e.target.value)}
-              rows={8}
-              maxLength={100_000}
-              placeholder="Paste the plain text of your resume here so the analyzer can use it…"
-              className="mt-2 w-full rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-[color:var(--royal)] resize-none"
-            />
-            <div className="mt-1 text-right text-xs text-[color:var(--slate-blue)]">
-              {resumeText.length.toLocaleString()} / 100,000
+            <div className="mt-3 rounded-md border border-[color:var(--royal)]/30 bg-[color:var(--ice)] p-3 text-xs text-[color:var(--deep)]">
+              <AlertTriangle className="inline h-3.5 w-3.5 mr-1 text-[color:var(--royal)]" />
+              {uploadErr}
             </div>
-          </div>
+          )}
         </div>
 
         <div className="rounded-2xl bg-white border border-border p-6">
@@ -542,17 +704,36 @@ function ProfileView({
             <Field label="Full name" value={fullName} onChange={setFullName} />
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)]">
-                Target region
+                Country
               </label>
               <select
-                value={region}
-                onChange={(e) => setRegion(e.target.value)}
+                value={country}
+                onChange={(e) => {
+                  setCountry(e.target.value);
+                  if (!e.target.value) setCity("");
+                }}
                 className="mt-2 w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-[color:var(--deep)] outline-none focus:border-[color:var(--royal)]"
               >
-                {REGIONS.map((r) => (
-                  <option key={r}>{r}</option>
+                <option value="">Select a country…</option>
+                {COUNTRY_NAMES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)]">
+                City
+              </label>
+              <input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                disabled={!country}
+                maxLength={120}
+                placeholder={country ? `Your city in ${country}` : "Pick a country first"}
+                className="mt-2 w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-[color:var(--deep)] outline-none focus:border-[color:var(--royal)] disabled:bg-[color:var(--ice)] disabled:cursor-not-allowed disabled:text-[color:var(--slate-blue)]"
+              />
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)]">
@@ -563,7 +744,7 @@ function ProfileView({
               </div>
             </div>
             <button
-              onClick={save}
+              onClick={saveProfile}
               disabled={saving || !profile}
               className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-[color:var(--royal)] px-4 py-2.5 text-sm font-semibold text-white shadow-[var(--shadow-blue)] hover:bg-[color:var(--ocean)] disabled:opacity-50 transition-colors"
             >
@@ -579,7 +760,9 @@ function ProfileView({
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/80">
             <Globe2 className="h-3.5 w-3.5" /> Regional snapshot
           </div>
-          <div className="mt-3 text-2xl font-bold">{region || "Set a region"}</div>
+          <div className="mt-3 text-2xl font-bold">
+            {[city, country].filter(Boolean).join(", ") || "Set a location"}
+          </div>
           <p className="mt-2 text-sm text-white/80">
             The analyzer weights timezone overlap, visa needs, and regional demand against every JD you audit.
           </p>
@@ -638,12 +821,12 @@ function AnalyzerView({
           job_description: jd,
           company_name: company,
           job_title: role,
-          target_region: profile.target_region ?? "",
+          country: profile.country ?? "",
+          city: profile.city ?? "",
         },
       });
 
       if (res.error) {
-        // res.error may hide the response body; fall back to generic
         throw new Error(res.error.message || "Analysis failed");
       }
       const analysis = (res.data as { analysis?: AnalysisRow })?.analysis;
@@ -665,7 +848,7 @@ function AnalyzerView({
           <div>
             <div className="font-semibold">Add your resume first</div>
             <div className="text-[color:var(--slate-blue)] text-xs mt-1">
-              Head to <span className="font-semibold">My Profile & Resume</span> and paste your resume text so the analyzer has something to score.
+              Head to <span className="font-semibold">My Profile & Resume</span> and upload or paste your resume so the analyzer has something to score.
             </div>
           </div>
         </div>
@@ -780,6 +963,13 @@ function ResultPanel({ data }: { data: AnalysisRow }) {
               at <span className="font-semibold text-[color:var(--royal)]">{data.company_name}</span>
             </div>
           </div>
+          <Link
+            to="/history/$id"
+            params={{ id: data.id }}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)]"
+          >
+            Open detail <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </div>
 
@@ -827,7 +1017,7 @@ function ResultPanel({ data }: { data: AnalysisRow }) {
   );
 }
 
-function VerdictBadge({ verdict }: { verdict: string }) {
+export function VerdictBadge({ verdict }: { verdict: string }) {
   const lower = verdict.toLowerCase();
   let bg = "var(--ocean)";
   let color = "#fff";
@@ -901,6 +1091,7 @@ function HistoryView({
   error: string | null;
   onDeleted: () => Promise<void>;
 }) {
+  const nav = useNavigate();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -922,8 +1113,8 @@ function HistoryView({
   async function del(id: string) {
     setBusyId(id);
     try {
-      const { error } = await supabase.from("analysis_history").delete().eq("id", id);
-      if (error) throw error;
+      const { error: dErr } = await supabase.from("analysis_history").delete().eq("id", id);
+      if (dErr) throw dErr;
       await onDeleted();
     } catch (e) {
       console.error(e);
@@ -1002,7 +1193,11 @@ function HistoryView({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t border-border hover:bg-[color:var(--ice)]/50">
+              <tr
+                key={r.id}
+                onClick={() => nav({ to: "/history/$id", params: { id: r.id } })}
+                className="border-t border-border hover:bg-[color:var(--ice)]/50 cursor-pointer"
+              >
                 <td className="px-5 py-4 font-semibold text-[color:var(--deep)]">{r.company_name}</td>
                 <td className="px-5 py-4 text-[color:var(--slate-blue)]">{r.job_title}</td>
                 <td className="px-5 py-4">
@@ -1022,7 +1217,10 @@ function HistoryView({
                 </td>
                 <td className="px-5 py-4 text-right">
                   <button
-                    onClick={() => del(r.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void del(r.id);
+                    }}
                     disabled={busyId === r.id}
                     className="inline-flex items-center justify-center h-8 w-8 rounded-md text-[color:var(--slate-blue)] hover:bg-[color:var(--ice)] hover:text-[color:var(--royal)] disabled:opacity-40"
                     aria-label="Delete"
