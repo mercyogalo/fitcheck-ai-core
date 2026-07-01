@@ -222,14 +222,17 @@ function Dashboard() {
           {view === "history" && (
             <HistoryView
               items={history}
+              applications={applications}
               loading={historyLoading}
               error={historyError}
               onDeleted={loadHistory}
+              onApplicationChanged={loadTracker}
             />
           )}
-          {view === "recommendations" && (
-            <RecommendationsView
-              savedJobs={savedJobs}
+          {view === "applications" && (
+            <ApplicationsView
+              applications={applications}
+              analyses={history}
               loading={trackerLoading}
               error={trackerError}
               onChanged={loadTracker}
