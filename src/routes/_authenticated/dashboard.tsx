@@ -73,7 +73,7 @@ type AnalysisRow = {
 
 const COUNTRY_NAMES: string[] = getNames().sort((a, b) => a.localeCompare(b));
 
-type View = "analyzer" | "profile" | "history" | "recommendations" | "applications";
+type View = "analyzer" | "profile" | "history" | "applications";
 
 export type Stage =
   | "applied"
@@ -101,87 +101,15 @@ export const STAGES_ORDERED: Stage[] = [
   "denied",
 ];
 
-type SavedJob = {
+export type JobApplication = {
   id: string;
   user_id: string;
-  company_name: string;
-  job_title: string;
-  job_description: string;
-  applied: boolean;
-  created_at: string;
-};
-
-type JobApplication = {
-  id: string;
-  user_id: string;
-  saved_job_id: string | null;
-  company_name: string;
-  job_title: string;
-  job_description: string;
+  analysis_id: string;
   stage: Stage;
   notes: string | null;
   updated_at: string;
   created_at: string;
 };
-
-type RecommendedJob = {
-  key: string;
-  company_name: string;
-  job_title: string;
-  location: string;
-  job_description: string;
-};
-
-const RECOMMENDED_JOBS: RecommendedJob[] = [
-  {
-    key: "stripe-be",
-    company_name: "Stripe",
-    job_title: "Senior Backend Engineer",
-    location: "Remote · EMEA",
-    job_description:
-      "Design and operate high-throughput payment APIs in Go and Ruby. 5+ years backend, distributed systems, PostgreSQL, event-driven architectures. Strong write-up culture; on-call rotation. Remote within EMEA time zones.",
-  },
-  {
-    key: "linear-fe",
-    company_name: "Linear",
-    job_title: "Product Engineer, Frontend",
-    location: "Remote · Global",
-    job_description:
-      "Build the fastest issue-tracker in the world. React, TypeScript, GraphQL. Deep taste for interaction design. 3+ years shipping user-facing product. Written communication essential.",
-  },
-  {
-    key: "andela-ds",
-    company_name: "Andela",
-    job_title: "Data Scientist (Remote)",
-    location: "Remote · Africa & LATAM",
-    job_description:
-      "Support enterprise clients with predictive modelling. Python, SQL, scikit-learn, cloud (AWS or GCP). Communicate insights to non-technical stakeholders. 3+ years experience. English fluency required.",
-  },
-  {
-    key: "safaricom-mob",
-    company_name: "Safaricom",
-    job_title: "Mobile Engineer (Android)",
-    location: "Nairobi, Kenya · Hybrid",
-    job_description:
-      "Build M-Pesa consumer experiences for millions of users. Kotlin, Jetpack Compose, offline-first patterns. 4+ years native Android. Right to work in Kenya required.",
-  },
-  {
-    key: "shopify-plat",
-    company_name: "Shopify",
-    job_title: "Platform Reliability Engineer",
-    location: "Remote · Americas & EMEA",
-    job_description:
-      "Own observability, incident response, and capacity planning across storefront edge. Ruby, MySQL, Kafka. 4+ years SRE. On-call ownership. Deep Linux systems knowledge.",
-  },
-  {
-    key: "notion-growth",
-    company_name: "Notion",
-    job_title: "Growth Engineer",
-    location: "Remote · US timezones",
-    job_description:
-      "Ship activation experiments across web onboarding. TypeScript, React, SQL, A/B testing. Bias to shipping. 3+ years growth or product engineering. Comfort with data and copy.",
-  },
-];
 
 /* ============== Root ============== */
 
