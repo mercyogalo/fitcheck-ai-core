@@ -168,14 +168,12 @@ function Dashboard() {
     setTrackerLoading(true);
     setTrackerError(null);
     try {
-      const [savedRes, appsRes] = await Promise.all([
-        supabase.from("saved_jobs").select("*").order("created_at", { ascending: false }),
-        supabase.from("job_applications").select("*").order("updated_at", { ascending: false }),
-      ]);
-      if (savedRes.error) throw savedRes.error;
-      if (appsRes.error) throw appsRes.error;
-      setSavedJobs((savedRes.data as SavedJob[]) ?? []);
-      setApplications((appsRes.data as JobApplication[]) ?? []);
+      const { data, error } = await supabase
+        .from("job_applications")
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      setApplications((data as JobApplication[]) ?? []);
     } catch (e) {
       setTrackerError(e instanceof Error ? e.message : "Failed to load applications");
     } finally {
