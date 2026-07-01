@@ -88,7 +88,7 @@ function Hero({ onWatchDemo }: { onWatchDemo: () => void }) {
             Stop wasting time on applications that don't fit.
           </h1>
           <p className="mt-5 text-lg md:text-xl text-[color:var(--slate-blue)] max-w-2xl">
-            Let an AI agent audit your resume against any job description instantly — calculating real hiring probability, regional compliance, and the exact gaps standing between you and the offer.
+            Let an AI agent audit your resume against any job description instantly calculating real hiring probability, regional compliance, and the exact gaps standing between you and the offer.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -204,13 +204,13 @@ function About() {
               Replace blind applying with intentional, evidence-backed targeting.
             </h2>
             <p className="mt-5 text-lg text-[color:var(--slate-blue)]">
-              The average job seeker fires off 100+ applications a month with a single resume — burning weeks of energy on roles where they were never a real fit. FitCheck AI is the agentic filter between you and the apply button.
+              The average job seeker fires off 100+ applications a month with a single resume burning weeks of energy on roles where they were never a real fit. FitCheck AI is the agentic filter between you and the apply button.
             </p>
           </div>
           <div className="relative">
             <div className="absolute -inset-4 rounded-3xl opacity-25 blur-2xl" style={{ background: "var(--gradient-blue)" }} />
             <img
-              src={aboutImage.url}
+              src="https://s3.amazonaws.com/shecodesio-production/uploads/files/000/180/693/original/ChatGPT_Image_Jul_1__2026__05_03_39_PM.png?1782914640"
               alt="Person reviewing a resume at a laptop while preparing a job application"
               width={1280}
               height={960}
@@ -257,7 +257,7 @@ function Features() {
     { icon: FileText, title: "Resume Parsing", desc: "Structured extraction of skills, years, domains and tooling from any PDF or DOCX resume." },
     { icon: Gauge, title: "Hiring Probability", desc: "A calibrated score predicting how likely you are to clear screening for this exact role." },
     { icon: Globe2, title: "Regional & Visa Fit", desc: "Timezone overlap, work-authorization needs, and hiring-market signals per region." },
-    { icon: GraduationCap, title: "Upskilling Recommendations", desc: "Ranked actions — courses, projects, certs — to close the gaps that matter most." },
+    { icon: GraduationCap, title: "Upskilling Recommendations", desc: "Ranked actions courses, projects, certs to close the gaps that matter most." },
     { icon: Layers, title: "JD Decomposition", desc: "The agent breaks the JD into must-haves, nice-to-haves, and unspoken expectations." },
     { icon: ShieldCheck, title: "Decision Confidence", desc: "Go / No-Go recommendation with full reasoning trail you can audit yourself." },
   ];
@@ -322,11 +322,8 @@ function Footer() {
       </div>
       <div className="border-t border-white/10">
         <div className="mx-auto max-w-7xl px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/50">
-          <div>© {new Date().getFullYear()} FitCheck AI — Built for the hackathon.</div>
-          <div className="flex items-center gap-4">
-            <a href="#" className="hover:text-white inline-flex items-center gap-1"><Github className="h-3.5 w-3.5" /> Source</a>
-            <span>White · Blue · Nothing else.</span>
-          </div>
+          <div>© {new Date().getFullYear()} FitCheck AI </div>
+         
         </div>
       </div>
     </footer>
