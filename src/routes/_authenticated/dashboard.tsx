@@ -238,14 +238,6 @@ function Dashboard() {
               onChanged={loadTracker}
             />
           )}
-          {view === "applications" && (
-            <ApplicationsView
-              applications={applications}
-              loading={trackerLoading}
-              error={trackerError}
-              onChanged={loadTracker}
-            />
-          )}
         </div>
       </main>
     </div>
