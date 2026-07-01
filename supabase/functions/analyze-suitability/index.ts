@@ -97,7 +97,9 @@ Deno.serve(async (req: Request) => {
     const job_description = sanitize(body?.job_description);
     const company_name = sanitize(body?.company_name, 200);
     const job_title = sanitize(body?.job_title, 200);
-    const target_region = sanitize(body?.target_region, 200);
+    const country = sanitize(body?.country, 120);
+    const city = sanitize(body?.city, 120);
+    const region_label = [city, country].filter(Boolean).join(", ");
 
     if (!resume_text || resume_text.length < 20) {
       return jsonResponse({ error: "resume_text is missing or too short" }, 400);
@@ -126,9 +128,10 @@ Deno.serve(async (req: Request) => {
       '"strengths": [string,...], "gaps": [string,...], "regional_fit": string, "upskilling_steps": [string,...]}';
 
     const userPrompt =
-      `Candidate target region: ${target_region || "unspecified"}\n\n` +
+      `Candidate location: ${region_label || "unspecified"}\n\n` +
       `=== RESUME ===\n${resume_text}\n\n` +
       `=== JOB (${job_title} @ ${company_name}) ===\n${job_description}`;
+
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
