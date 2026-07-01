@@ -26,9 +26,7 @@ import {
   Trash2,
   RefreshCw,
   Camera,
-  Compass,
   ClipboardList,
-  Circle,
 } from "lucide-react";
 import { getNames } from "country-list";
 import { supabase } from "@/integrations/supabase/client";
