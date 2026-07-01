@@ -195,6 +195,41 @@ function HistoryDetail() {
   );
 }
 
+function ListCard({
+  title,
+  icon: Icon,
+  items,
+  empty,
+}: {
+  title: string;
+  icon: typeof CheckCircle2;
+  items: string[];
+  empty: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-white border border-border p-6">
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 rounded-md grid place-items-center bg-[color:var(--ice)]">
+          <Icon className="h-4 w-4 text-[color:var(--royal)]" />
+        </div>
+        <h3 className="font-display text-lg font-semibold text-[color:var(--deep)]">{title}</h3>
+      </div>
+      {items.length === 0 ? (
+        <p className="mt-4 text-sm text-[color:var(--slate-blue)] italic">{empty}</p>
+      ) : (
+        <ul className="mt-5 space-y-3">
+          {items.map((it, idx) => (
+            <li key={idx} className="border-l-2 border-[color:var(--royal)] pl-4 text-sm text-[color:var(--slate-blue)]">
+              {it}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[color:var(--ice)]">
