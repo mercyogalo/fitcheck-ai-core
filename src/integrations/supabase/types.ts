@@ -69,47 +69,38 @@ export type Database = {
       }
       job_applications: {
         Row: {
-          company_name: string
+          analysis_id: string
           created_at: string
           id: string
-          job_description: string
-          job_title: string
           notes: string | null
-          saved_job_id: string | null
           stage: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          company_name: string
+          analysis_id: string
           created_at?: string
           id?: string
-          job_description: string
-          job_title: string
           notes?: string | null
-          saved_job_id?: string | null
-          stage: string
+          stage?: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          company_name?: string
+          analysis_id?: string
           created_at?: string
           id?: string
-          job_description?: string
-          job_title?: string
           notes?: string | null
-          saved_job_id?: string | null
           stage?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "job_applications_saved_job_id_fkey"
-            columns: ["saved_job_id"]
+            foreignKeyName: "job_applications_analysis_id_fkey"
+            columns: ["analysis_id"]
             isOneToOne: false
-            referencedRelation: "saved_jobs"
+            referencedRelation: "analysis_history"
             referencedColumns: ["id"]
           },
           {
@@ -162,44 +153,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      saved_jobs: {
-        Row: {
-          applied: boolean
-          company_name: string
-          created_at: string
-          id: string
-          job_description: string
-          job_title: string
-          user_id: string
-        }
-        Insert: {
-          applied?: boolean
-          company_name: string
-          created_at?: string
-          id?: string
-          job_description: string
-          job_title: string
-          user_id: string
-        }
-        Update: {
-          applied?: boolean
-          company_name?: string
-          created_at?: string
-          id?: string
-          job_description?: string
-          job_title?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "saved_jobs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {

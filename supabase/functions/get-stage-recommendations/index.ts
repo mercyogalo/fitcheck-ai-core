@@ -106,13 +106,17 @@ Deno.serve(async (req: Request) => {
 
     const { data: app, error: appErr } = await supabase
       .from("job_applications")
-      .select("id, user_id, company_name, job_title, job_description, stage")
+      .select("id, user_id, stage, analysis_id, analysis:analysis_history!inner(id, company_name, job_title, job_description)")
       .eq("id", applicationId)
       .eq("user_id", userId)
       .maybeSingle();
     if (appErr) return jsonResponse({ error: "Failed to load application" }, 500);
     if (!app) return jsonResponse({ error: "Application not found" }, 404);
     if (!STAGES.has(app.stage)) return jsonResponse({ error: "Invalid stage" }, 400);
+
+    const analysisRaw = (app as any).analysis;
+    const analysis = Array.isArray(analysisRaw) ? analysisRaw[0] : analysisRaw;
+    if (!analysis) return jsonResponse({ error: "Linked analysis not found" }, 404);
 
     const relevantStages = new Set(["preparing_test", "preparing_interview", "interview_scheduled"]);
     if (!relevantStages.has(app.stage)) {

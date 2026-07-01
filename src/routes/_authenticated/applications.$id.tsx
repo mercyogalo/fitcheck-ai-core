@@ -14,19 +14,26 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { STAGE_LABEL, STAGES_ORDERED, type Stage } from "./dashboard";
+import { STAGE_LABEL, STAGES_ORDERED, VerdictBadge, type Stage } from "./dashboard";
+
+type Analysis = {
+  id: string;
+  company_name: string;
+  job_title: string;
+  job_description: string;
+  match_score: number;
+  verdict: string;
+};
 
 type JobApplication = {
   id: string;
   user_id: string;
-  saved_job_id: string | null;
-  company_name: string;
-  job_title: string;
-  job_description: string;
+  analysis_id: string;
   stage: Stage;
   notes: string | null;
   updated_at: string;
   created_at: string;
+  analysis: Analysis | null;
 };
 
 type TestPrep = {
@@ -38,8 +45,9 @@ type TestPrep = {
 
 type InterviewPrep = {
   kind: "interview_prep";
-  questions: { question: string; response_angle: string }[];
-  themes: string[];
+  likely_questions: { question: string; angle: string }[];
+  behavioral_themes: string[];
+  smart_talking_points: string[];
 };
 
 type Recommendation = TestPrep | InterviewPrep;
@@ -70,14 +78,30 @@ function ApplicationDetail() {
       if (userErr || !userData.user) throw userErr ?? new Error("Not signed in");
       const { data, error: err } = await supabase
         .from("job_applications")
-        .select("*")
+        .select(
+          "id, user_id, analysis_id, stage, notes, updated_at, created_at, analysis:analysis_history!inner(id, company_name, job_title, job_description, match_score, verdict)",
+        )
         .eq("id", id)
         .eq("user_id", userData.user.id)
         .maybeSingle();
       if (err) throw err;
-      const row = data as JobApplication | null;
-      setApp(row);
-      setNotes(row?.notes ?? "");
+      if (!data) {
+        setApp(null);
+      } else {
+        const raw = data as unknown as {
+          id: string;
+          user_id: string;
+          analysis_id: string;
+          stage: Stage;
+          notes: string | null;
+          updated_at: string;
+          created_at: string;
+          analysis: Analysis | Analysis[] | null;
+        };
+        const analysis = Array.isArray(raw.analysis) ? raw.analysis[0] ?? null : raw.analysis;
+        setApp({ ...raw, analysis });
+        setNotes(raw.notes ?? "");
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load application");
     } finally {
@@ -133,9 +157,9 @@ function ApplicationDetail() {
         { body: { application_id: app.id } },
       );
       if (err) throw err;
-      const payload = data as { recommendation?: Recommendation };
-      if (!payload?.recommendation) throw new Error("No recommendation returned");
-      setRec(payload.recommendation);
+      const payload = data as { recommendations?: Recommendation };
+      if (!payload?.recommendations) throw new Error("No recommendation returned");
+      setRec(payload.recommendations);
     } catch (e) {
       setRecError(e instanceof Error ? e.message : "Failed to fetch recommendations");
     } finally {
@@ -180,6 +204,8 @@ function ApplicationDetail() {
     app.stage === "preparing_interview" ||
     app.stage === "interview_scheduled";
 
+  const analysis = app.analysis;
+
   return (
     <div className="min-h-screen bg-[color:var(--ice)]">
       <div className="bg-white border-b border-border">
@@ -199,12 +225,28 @@ function ApplicationDetail() {
       <div className="max-w-5xl mx-auto px-8 py-8 space-y-6">
         <div className="rounded-xl border border-border bg-white p-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-[color:var(--ocean)] flex items-center gap-1">
-            <Building2 className="h-3 w-3" /> {app.company_name}
+            <Building2 className="h-3 w-3" /> {analysis?.company_name ?? "Unknown company"}
           </div>
           <h1 className="mt-2 text-2xl font-bold text-[color:var(--deep)] flex items-center gap-2">
             <Briefcase className="h-5 w-5 text-[color:var(--royal)]" />
-            {app.job_title}
+            {analysis?.job_title ?? "Unknown role"}
           </h1>
+          {analysis && (
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <VerdictBadge verdict={analysis.verdict} />
+              <span className="text-sm text-[color:var(--slate-blue)]">
+                Match score:{" "}
+                <span className="font-semibold text-[color:var(--royal)]">{analysis.match_score}</span>
+              </span>
+              <Link
+                to="/history/$id"
+                params={{ id: analysis.id }}
+                className="text-xs text-[color:var(--royal)] hover:text-[color:var(--ocean)] font-semibold underline"
+              >
+                View original analysis
+              </Link>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <label className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)]">
               Stage
@@ -225,14 +267,16 @@ function ApplicationDetail() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-white p-6">
-          <div className="flex items-center gap-2 text-[color:var(--deep)] font-semibold">
-            <FileText className="h-4 w-4 text-[color:var(--royal)]" /> Job description
+        {analysis && (
+          <div className="rounded-xl border border-border bg-white p-6">
+            <div className="flex items-center gap-2 text-[color:var(--deep)] font-semibold">
+              <FileText className="h-4 w-4 text-[color:var(--royal)]" /> Job description
+            </div>
+            <pre className="mt-3 whitespace-pre-wrap text-sm text-[color:var(--slate-blue)] font-sans">
+              {analysis.job_description}
+            </pre>
           </div>
-          <pre className="mt-3 whitespace-pre-wrap text-sm text-[color:var(--slate-blue)] font-sans">
-            {app.job_description}
-          </pre>
-        </div>
+        )}
 
         <div className="rounded-xl border border-border bg-white p-6">
           <div className="flex items-center justify-between gap-3">
@@ -298,13 +342,13 @@ function ApplicationDetail() {
 
           {rec && rec.kind === "interview_prep" && (
             <div className="mt-4 space-y-4">
-              {rec.themes.length > 0 && (
+              {rec.behavioral_themes.length > 0 && (
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)] mb-2">
-                    Themes
+                    Behavioral themes
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {rec.themes.map((t) => (
+                    {rec.behavioral_themes.map((t) => (
                       <span
                         key={t}
                         className="text-xs font-medium text-[color:var(--royal)] bg-[color:var(--ice)] border border-[color:var(--royal)]/20 rounded-full px-2.5 py-1"
@@ -316,17 +360,20 @@ function ApplicationDetail() {
                 </div>
               )}
               <div className="space-y-3">
-                {rec.questions.map((q, i) => (
+                {rec.likely_questions.map((q, i) => (
                   <div key={i} className="rounded-lg border border-border bg-[color:var(--ice)] p-4">
                     <div className="font-semibold text-[color:var(--deep)] text-sm">
                       {i + 1}. {q.question}
                     </div>
                     <div className="mt-2 text-sm text-[color:var(--slate-blue)]">
-                      <span className="font-semibold text-[color:var(--royal)]">Angle:</span> {q.response_angle}
+                      <span className="font-semibold text-[color:var(--royal)]">Angle:</span> {q.angle}
                     </div>
                   </div>
                 ))}
               </div>
+              {rec.smart_talking_points.length > 0 && (
+                <RecList title="Smart talking points" items={rec.smart_talking_points} />
+              )}
             </div>
           )}
         </div>

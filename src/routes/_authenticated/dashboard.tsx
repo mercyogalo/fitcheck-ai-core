@@ -26,9 +26,7 @@ import {
   Trash2,
   RefreshCw,
   Camera,
-  Compass,
   ClipboardList,
-  Circle,
 } from "lucide-react";
 import { getNames } from "country-list";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,7 +73,7 @@ type AnalysisRow = {
 
 const COUNTRY_NAMES: string[] = getNames().sort((a, b) => a.localeCompare(b));
 
-type View = "analyzer" | "profile" | "history" | "recommendations" | "applications";
+type View = "analyzer" | "profile" | "history" | "applications";
 
 export type Stage =
   | "applied"
@@ -103,87 +101,15 @@ export const STAGES_ORDERED: Stage[] = [
   "denied",
 ];
 
-type SavedJob = {
+export type JobApplication = {
   id: string;
   user_id: string;
-  company_name: string;
-  job_title: string;
-  job_description: string;
-  applied: boolean;
-  created_at: string;
-};
-
-type JobApplication = {
-  id: string;
-  user_id: string;
-  saved_job_id: string | null;
-  company_name: string;
-  job_title: string;
-  job_description: string;
+  analysis_id: string;
   stage: Stage;
   notes: string | null;
   updated_at: string;
   created_at: string;
 };
-
-type RecommendedJob = {
-  key: string;
-  company_name: string;
-  job_title: string;
-  location: string;
-  job_description: string;
-};
-
-const RECOMMENDED_JOBS: RecommendedJob[] = [
-  {
-    key: "stripe-be",
-    company_name: "Stripe",
-    job_title: "Senior Backend Engineer",
-    location: "Remote · EMEA",
-    job_description:
-      "Design and operate high-throughput payment APIs in Go and Ruby. 5+ years backend, distributed systems, PostgreSQL, event-driven architectures. Strong write-up culture; on-call rotation. Remote within EMEA time zones.",
-  },
-  {
-    key: "linear-fe",
-    company_name: "Linear",
-    job_title: "Product Engineer, Frontend",
-    location: "Remote · Global",
-    job_description:
-      "Build the fastest issue-tracker in the world. React, TypeScript, GraphQL. Deep taste for interaction design. 3+ years shipping user-facing product. Written communication essential.",
-  },
-  {
-    key: "andela-ds",
-    company_name: "Andela",
-    job_title: "Data Scientist (Remote)",
-    location: "Remote · Africa & LATAM",
-    job_description:
-      "Support enterprise clients with predictive modelling. Python, SQL, scikit-learn, cloud (AWS or GCP). Communicate insights to non-technical stakeholders. 3+ years experience. English fluency required.",
-  },
-  {
-    key: "safaricom-mob",
-    company_name: "Safaricom",
-    job_title: "Mobile Engineer (Android)",
-    location: "Nairobi, Kenya · Hybrid",
-    job_description:
-      "Build M-Pesa consumer experiences for millions of users. Kotlin, Jetpack Compose, offline-first patterns. 4+ years native Android. Right to work in Kenya required.",
-  },
-  {
-    key: "shopify-plat",
-    company_name: "Shopify",
-    job_title: "Platform Reliability Engineer",
-    location: "Remote · Americas & EMEA",
-    job_description:
-      "Own observability, incident response, and capacity planning across storefront edge. Ruby, MySQL, Kafka. 4+ years SRE. On-call ownership. Deep Linux systems knowledge.",
-  },
-  {
-    key: "notion-growth",
-    company_name: "Notion",
-    job_title: "Growth Engineer",
-    location: "Remote · US timezones",
-    job_description:
-      "Ship activation experiments across web onboarding. TypeScript, React, SQL, A/B testing. Bias to shipping. 3+ years growth or product engineering. Comfort with data and copy.",
-  },
-];
 
 /* ============== Root ============== */
 
@@ -196,7 +122,6 @@ function Dashboard() {
   const [history, setHistory] = useState<AnalysisRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [trackerLoading, setTrackerLoading] = useState(true);
   const [trackerError, setTrackerError] = useState<string | null>(null);
@@ -243,14 +168,12 @@ function Dashboard() {
     setTrackerLoading(true);
     setTrackerError(null);
     try {
-      const [savedRes, appsRes] = await Promise.all([
-        supabase.from("saved_jobs").select("*").order("created_at", { ascending: false }),
-        supabase.from("job_applications").select("*").order("updated_at", { ascending: false }),
-      ]);
-      if (savedRes.error) throw savedRes.error;
-      if (appsRes.error) throw appsRes.error;
-      setSavedJobs((savedRes.data as SavedJob[]) ?? []);
-      setApplications((appsRes.data as JobApplication[]) ?? []);
+      const { data, error } = await supabase
+        .from("job_applications")
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      setApplications((data as JobApplication[]) ?? []);
     } catch (e) {
       setTrackerError(e instanceof Error ? e.message : "Failed to load applications");
     } finally {
@@ -299,22 +222,17 @@ function Dashboard() {
           {view === "history" && (
             <HistoryView
               items={history}
+              applications={applications}
               loading={historyLoading}
               error={historyError}
               onDeleted={loadHistory}
-            />
-          )}
-          {view === "recommendations" && (
-            <RecommendationsView
-              savedJobs={savedJobs}
-              loading={trackerLoading}
-              error={trackerError}
-              onChanged={loadTracker}
+              onApplicationChanged={loadTracker}
             />
           )}
           {view === "applications" && (
             <ApplicationsView
               applications={applications}
+              analyses={history}
               loading={trackerLoading}
               error={trackerError}
               onChanged={loadTracker}
@@ -360,7 +278,6 @@ function Sidebar({
   const items: { key: View; label: string; icon: typeof LayoutGrid }[] = [
     { key: "analyzer", label: "Suitability Analyzer", icon: LayoutGrid },
     { key: "profile", label: "My Profile & Resume", icon: User },
-    { key: "recommendations", label: "Recommended Jobs", icon: Compass },
     { key: "applications", label: "My Applications", icon: ClipboardList },
     { key: "history", label: "Analysis History", icon: History },
   ];
@@ -530,11 +447,7 @@ function TopBar({ view }: { view: View }) {
     },
     history: {
       title: "Analysis History",
-      sub: "Every audit you've run, searchable and filterable.",
-    },
-    recommendations: {
-      title: "Recommended Jobs",
-      sub: "Curated roles worth a look. Mark the ones you actually apply to.",
+      sub: "Every audit you've run. Mark the ones you actually applied to.",
     },
     applications: {
       title: "My Applications",
@@ -1341,19 +1254,31 @@ function RegionStat({ icon: Icon, label, value }: { icon: typeof Clock; label: s
 
 function HistoryView({
   items,
+  applications,
   loading,
   error,
   onDeleted,
+  onApplicationChanged,
 }: {
   items: AnalysisRow[];
+  applications: JobApplication[];
   loading: boolean;
   error: string | null;
   onDeleted: () => Promise<void>;
+  onApplicationChanged: () => Promise<void>;
 }) {
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [applyBusyId, setApplyBusyId] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const appByAnalysis = useMemo(() => {
+    const map = new Map<string, JobApplication>();
+    for (const a of applications) map.set(a.analysis_id, a);
+    return map;
+  }, [applications]);
 
   const verdicts = useMemo(() => {
     const set = new Set<string>();
@@ -1375,10 +1300,31 @@ function HistoryView({
       const { error: dErr } = await supabase.from("analysis_history").delete().eq("id", id);
       if (dErr) throw dErr;
       await onDeleted();
+      await onApplicationChanged();
     } catch (e) {
-      console.error(e);
+      setLocalError(e instanceof Error ? e.message : "Failed to delete");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function markApplied(analysisId: string) {
+    setApplyBusyId(analysisId);
+    setLocalError(null);
+    try {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw userErr ?? new Error("Not signed in");
+      const { error: insErr } = await supabase.from("job_applications").insert({
+        user_id: userData.user.id,
+        analysis_id: analysisId,
+        stage: "applied",
+      });
+      if (insErr) throw insErr;
+      await onApplicationChanged();
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : "Failed to mark applied");
+    } finally {
+      setApplyBusyId(null);
     }
   }
 
@@ -1402,6 +1348,11 @@ function HistoryView({
 
   return (
     <div className="rounded-2xl bg-white border border-border shadow-[var(--shadow-card)] overflow-hidden">
+      {localError && (
+        <div className="px-5 py-3 border-b border-border bg-[color:var(--ice)] text-sm text-[color:var(--royal)]">
+          {localError}
+        </div>
+      )}
       <div className="p-5 border-b border-border flex flex-col md:flex-row md:items-center gap-3">
         <div className="flex items-center gap-2 flex-1 rounded-md border border-border px-3">
           <Search className="h-4 w-4 text-[color:var(--slate-blue)]" />
@@ -1446,52 +1397,91 @@ function HistoryView({
               <th className="px-5 py-3 font-semibold">Role</th>
               <th className="px-5 py-3 font-semibold">Score</th>
               <th className="px-5 py-3 font-semibold">Verdict</th>
+              <th className="px-5 py-3 font-semibold">Applied?</th>
               <th className="px-5 py-3 font-semibold">Date</th>
               <th className="px-5 py-3" />
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr
-                key={r.id}
-                onClick={() => nav({ to: "/history/$id", params: { id: r.id } })}
-                className="border-t border-border hover:bg-[color:var(--ice)]/50 cursor-pointer"
-              >
-                <td className="px-5 py-4 font-semibold text-[color:var(--deep)]">{r.company_name}</td>
-                <td className="px-5 py-4 text-[color:var(--slate-blue)]">{r.job_title}</td>
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 h-1.5 rounded-full bg-[color:var(--ice)] overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${r.match_score}%`, background: "var(--gradient-blue)" }}
-                      />
-                    </div>
-                    <span className="font-semibold text-[color:var(--royal)]">{r.match_score}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-4"><VerdictBadge verdict={r.verdict} /></td>
-                <td className="px-5 py-4 text-[color:var(--slate-blue)]">
-                  {new Date(r.created_at).toISOString().slice(0, 10)}
-                </td>
-                <td className="px-5 py-4 text-right">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void del(r.id);
-                    }}
-                    disabled={busyId === r.id}
-                    className="inline-flex items-center justify-center h-8 w-8 rounded-md text-[color:var(--slate-blue)] hover:bg-[color:var(--ice)] hover:text-[color:var(--royal)] disabled:opacity-40"
-                    aria-label="Delete"
+            {rows.map((r) => {
+              const app = appByAnalysis.get(r.id);
+              return (
+                <tr
+                  key={r.id}
+                  className="border-t border-border hover:bg-[color:var(--ice)]/50"
+                >
+                  <td
+                    className="px-5 py-4 font-semibold text-[color:var(--deep)] cursor-pointer"
+                    onClick={() => nav({ to: "/history/$id", params: { id: r.id } })}
                   >
-                    {busyId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  </button>
-                </td>
-              </tr>
-            ))}
+                    {r.company_name}
+                  </td>
+                  <td
+                    className="px-5 py-4 text-[color:var(--slate-blue)] cursor-pointer"
+                    onClick={() => nav({ to: "/history/$id", params: { id: r.id } })}
+                  >
+                    {r.job_title}
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-1.5 rounded-full bg-[color:var(--ice)] overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${r.match_score}%`, background: "var(--gradient-blue)" }}
+                        />
+                      </div>
+                      <span className="font-semibold text-[color:var(--royal)]">{r.match_score}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4"><VerdictBadge verdict={r.verdict} /></td>
+                  <td className="px-5 py-4">
+                    {app ? (
+                      <Link
+                        to="/applications/$id"
+                        params={{ id: app.id }}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--royal)] text-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider hover:bg-[color:var(--ocean)]"
+                      >
+                        {STAGE_LABEL[app.stage]}
+                        <ChevronRight className="h-3 w-3" />
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={applyBusyId === r.id}
+                        onClick={() => markApplied(r.id)}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-[color:var(--royal)]/30 bg-white px-2.5 py-1 text-xs font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)] disabled:opacity-60"
+                      >
+                        {applyBusyId === r.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-3 w-3" />
+                        )}
+                        I applied
+                      </button>
+                    )}
+                  </td>
+                  <td className="px-5 py-4 text-[color:var(--slate-blue)]">
+                    {new Date(r.created_at).toISOString().slice(0, 10)}
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void del(r.id);
+                      }}
+                      disabled={busyId === r.id}
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-md text-[color:var(--slate-blue)] hover:bg-[color:var(--ice)] hover:text-[color:var(--royal)] disabled:opacity-40"
+                      aria-label="Delete"
+                    >
+                      {busyId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-12 text-center text-sm text-[color:var(--slate-blue)]">
+                <td colSpan={7} className="px-5 py-12 text-center text-sm text-[color:var(--slate-blue)]">
                   No analyses match those filters.
                 </td>
               </tr>
@@ -1503,200 +1493,45 @@ function HistoryView({
   );
 }
 
-/* ============== Recommendations View ============== */
-
-function RecommendationsView({
-  savedJobs,
-  loading,
-  error,
-  onChanged,
-}: {
-  savedJobs: SavedJob[];
-  loading: boolean;
-  error: string | null;
-  onChanged: () => void;
-}) {
-  const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [localError, setLocalError] = useState<string | null>(null);
-
-  const savedByKey = useMemo(() => {
-    // Match built-in recommendations with any saved rows the user already toggled.
-    const map = new Map<string, SavedJob>();
-    for (const s of savedJobs) {
-      map.set(`${s.company_name}::${s.job_title}`, s);
-    }
-    return map;
-  }, [savedJobs]);
-
-  async function markApplied(job: RecommendedJob) {
-    setBusyKey(job.key);
-    setLocalError(null);
-    try {
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData.user) throw userErr ?? new Error("Not signed in");
-      const uid = userData.user.id;
-
-      const existing = savedByKey.get(`${job.company_name}::${job.job_title}`);
-      let savedId: string;
-      if (existing) {
-        const { error: updErr } = await supabase
-          .from("saved_jobs")
-          .update({ applied: true })
-          .eq("id", existing.id);
-        if (updErr) throw updErr;
-        savedId = existing.id;
-      } else {
-        const { data: inserted, error: insErr } = await supabase
-          .from("saved_jobs")
-          .insert({
-            user_id: uid,
-            company_name: job.company_name,
-            job_title: job.job_title,
-            job_description: job.job_description,
-            applied: true,
-          })
-          .select("id")
-          .single();
-        if (insErr) throw insErr;
-        savedId = (inserted as { id: string }).id;
-      }
-
-      const { error: appErr } = await supabase.from("job_applications").insert({
-        user_id: uid,
-        saved_job_id: savedId,
-        company_name: job.company_name,
-        job_title: job.job_title,
-        job_description: job.job_description,
-        stage: "applied",
-      });
-      if (appErr) throw appErr;
-
-      onChanged();
-    } catch (e) {
-      setLocalError(e instanceof Error ? e.message : "Failed to mark applied");
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
-  async function markNotApplied(job: RecommendedJob) {
-    const existing = savedByKey.get(`${job.company_name}::${job.job_title}`);
-    if (!existing) return;
-    setBusyKey(job.key);
-    setLocalError(null);
-    try {
-      const { error: updErr } = await supabase
-        .from("saved_jobs")
-        .update({ applied: false })
-        .eq("id", existing.id);
-      if (updErr) throw updErr;
-      onChanged();
-    } catch (e) {
-      setLocalError(e instanceof Error ? e.message : "Failed to update");
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      {(error || localError) && (
-        <div className="rounded-lg border border-[color:var(--royal)]/20 bg-white p-4 text-sm text-[color:var(--royal)]">
-          {error || localError}
-        </div>
-      )}
-      <div className="grid md:grid-cols-2 gap-4">
-        {RECOMMENDED_JOBS.map((job) => {
-          const existing = savedByKey.get(`${job.company_name}::${job.job_title}`);
-          const applied = !!existing?.applied;
-          const busy = busyKey === job.key || loading;
-          return (
-            <div
-              key={job.key}
-              className="rounded-xl border border-border bg-white p-5 flex flex-col gap-3 shadow-[var(--shadow-card)]"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-[color:var(--ocean)]">
-                    {job.company_name}
-                  </div>
-                  <div className="font-semibold text-[color:var(--deep)] truncate">{job.job_title}</div>
-                  <div className="text-xs text-[color:var(--slate-blue)] mt-1 flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    {job.location}
-                  </div>
-                </div>
-                <div
-                  className={`shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full border ${
-                    applied
-                      ? "bg-[color:var(--royal)] text-white border-[color:var(--royal)]"
-                      : "bg-white text-[color:var(--slate-blue)] border-border"
-                  }`}
-                >
-                  {applied ? "Applied" : "Not applied"}
-                </div>
-              </div>
-              <p className="text-sm text-[color:var(--slate-blue)] line-clamp-4">{job.job_description}</p>
-              <div className="mt-auto flex items-center gap-2">
-                {applied ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => markNotApplied(job)}
-                    className="inline-flex items-center gap-2 rounded-md border border-border bg-white px-3 py-2 text-xs font-semibold text-[color:var(--slate-blue)] hover:bg-[color:var(--ice)] disabled:opacity-60"
-                  >
-                    {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Circle className="h-3 w-3" />}
-                    Mark not applied
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => markApplied(job)}
-                    className="inline-flex items-center gap-2 rounded-md bg-[color:var(--royal)] px-3 py-2 text-xs font-semibold text-white hover:bg-[color:var(--ocean)] disabled:opacity-60"
-                  >
-                    {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                    I applied
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 /* ============== Applications View ============== */
 
 function ApplicationsView({
   applications,
+  analyses,
   loading,
   error,
   onChanged,
 }: {
   applications: JobApplication[];
+  analyses: AnalysisRow[];
   loading: boolean;
   error: string | null;
-  onChanged: () => void;
+  onChanged: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<Stage | "all">("all");
 
+  const analysisById = useMemo(() => {
+    const map = new Map<string, AnalysisRow>();
+    for (const a of analyses) map.set(a.id, a);
+    return map;
+  }, [analyses]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return applications.filter((a) => {
       if (stageFilter !== "all" && a.stage !== stageFilter) return false;
+      const analysis = analysisById.get(a.analysis_id);
       if (!q) return true;
+      if (!analysis) return false;
       return (
-        a.company_name.toLowerCase().includes(q) ||
-        a.job_title.toLowerCase().includes(q)
+        analysis.company_name.toLowerCase().includes(q) ||
+        analysis.job_title.toLowerCase().includes(q)
       );
     });
-  }, [applications, query, stageFilter]);
+  }, [applications, analysisById, query, stageFilter]);
 
   async function changeStage(app: JobApplication, next: Stage) {
     if (app.stage === next) return;
@@ -1708,7 +1543,7 @@ function ApplicationsView({
         .update({ stage: next, updated_at: new Date().toISOString() })
         .eq("id", app.id);
       if (err) throw err;
-      onChanged();
+      await onChanged();
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : "Failed to update stage");
     } finally {
@@ -1722,7 +1557,7 @@ function ApplicationsView({
     try {
       const { error: err } = await supabase.from("job_applications").delete().eq("id", app.id);
       if (err) throw err;
-      onChanged();
+      await onChanged();
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : "Failed to remove");
     } finally {
@@ -1770,6 +1605,8 @@ function ApplicationsView({
             <tr>
               <th className="text-left px-4 py-3">Company</th>
               <th className="text-left px-4 py-3">Role</th>
+              <th className="text-left px-4 py-3">Match</th>
+              <th className="text-left px-4 py-3">Verdict</th>
               <th className="text-left px-4 py-3">Stage</th>
               <th className="text-left px-4 py-3">Updated</th>
               <th className="text-right px-4 py-3">Actions</th>
@@ -1778,7 +1615,7 @@ function ApplicationsView({
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-[color:var(--slate-blue)]">
+                <td colSpan={7} className="px-4 py-10 text-center text-[color:var(--slate-blue)]">
                   <Loader2 className="h-4 w-4 inline animate-spin mr-2" />
                   Loading applications…
                 </td>
@@ -1786,63 +1623,82 @@ function ApplicationsView({
             )}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-[color:var(--slate-blue)]">
-                  No applications yet. Mark a role as applied on the Recommended Jobs page.
+                <td colSpan={7} className="px-4 py-10 text-center text-[color:var(--slate-blue)]">
+                  No applications yet. On the Analysis History tab, mark a role as applied.
                 </td>
               </tr>
             )}
             {!loading &&
-              filtered.map((app) => (
-                <tr key={app.id} className="border-t border-border">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 font-medium text-[color:var(--deep)]">
-                      <Building2 className="h-4 w-4 text-[color:var(--slate-blue)]" />
-                      {app.company_name}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-[color:var(--slate-blue)]">{app.job_title}</td>
-                  <td className="px-4 py-3">
-                    <select
-                      disabled={busyId === app.id}
-                      value={app.stage}
-                      onChange={(e) => changeStage(app, e.target.value as Stage)}
-                      className="rounded-md border border-border bg-white px-2 py-1.5 text-xs text-[color:var(--deep)] focus:outline-none focus:border-[color:var(--royal)]"
-                    >
-                      {STAGES_ORDERED.map((s) => (
-                        <option key={s} value={s}>
-                          {STAGE_LABEL[s]}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 text-[color:var(--slate-blue)] text-xs">
-                    {new Date(app.updated_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-2">
-                      <Link
-                        to="/applications/$id"
-                        params={{ id: app.id }}
-                        className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)]"
-                      >
-                        View <ChevronRight className="h-3 w-3" />
-                      </Link>
-                      <button
-                        type="button"
+              filtered.map((app) => {
+                const analysis = analysisById.get(app.analysis_id);
+                return (
+                  <tr key={app.id} className="border-t border-border">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 font-medium text-[color:var(--deep)]">
+                        <Building2 className="h-4 w-4 text-[color:var(--slate-blue)]" />
+                        {analysis?.company_name ?? "—"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[color:var(--slate-blue)]">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-[color:var(--slate-blue)]" />
+                        {analysis?.job_title ?? "—"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {analysis ? (
+                        <span className="font-semibold text-[color:var(--royal)]">{analysis.match_score}</span>
+                      ) : (
+                        <span className="text-[color:var(--slate-blue)]">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {analysis ? <VerdictBadge verdict={analysis.verdict} /> : <span className="text-[color:var(--slate-blue)]">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
                         disabled={busyId === app.id}
-                        onClick={() => removeApp(app)}
-                        aria-label="Remove application"
-                        className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-1.5 text-xs text-[color:var(--slate-blue)] hover:text-[color:var(--royal)] hover:bg-[color:var(--ice)] disabled:opacity-60"
+                        value={app.stage}
+                        onChange={(e) => changeStage(app, e.target.value as Stage)}
+                        className="rounded-md border border-border bg-white px-2 py-1.5 text-xs text-[color:var(--deep)] focus:outline-none focus:border-[color:var(--royal)]"
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {STAGES_ORDERED.map((s) => (
+                          <option key={s} value={s}>
+                            {STAGE_LABEL[s]}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-3 text-[color:var(--slate-blue)] text-xs">
+                      {new Date(app.updated_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <Link
+                          to="/applications/$id"
+                          params={{ id: app.id }}
+                          className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-3 py-1.5 text-xs font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)]"
+                        >
+                          View <ChevronRight className="h-3 w-3" />
+                        </Link>
+                        <button
+                          type="button"
+                          disabled={busyId === app.id}
+                          onClick={() => removeApp(app)}
+                          aria-label="Remove application"
+                          className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-1.5 text-xs text-[color:var(--slate-blue)] hover:text-[color:var(--royal)] hover:bg-[color:var(--ice)] disabled:opacity-60"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>
     </div>
   );
 }
+
