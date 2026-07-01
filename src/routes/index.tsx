@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Play,
@@ -11,7 +12,9 @@ import {
   ShieldCheck,
   CircleDot,
   Github,
+  X,
 } from "lucide-react";
+import aboutImage from "@/assets/about-applying.jpg.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,19 +27,21 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
+  const [demoOpen, setDemoOpen] = useState(false);
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Navbar />
-      <Hero />
+      <Navbar onWatchDemo={() => setDemoOpen(true)} />
+      <Hero onWatchDemo={() => setDemoOpen(true)} />
       <About />
       <Features />
       <CtaBand />
       <Footer />
+      {demoOpen && <DemoVideoModal onClose={() => setDemoOpen(false)} />}
     </div>
   );
 }
 
-function Navbar() {
+function Navbar({ onWatchDemo }: { onWatchDemo: () => void }) {
   return (
     <header className="fixed top-0 inset-x-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-6 h-16 flex items-center justify-between">
@@ -49,6 +54,7 @@ function Navbar() {
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[color:var(--slate-blue)]">
           <a href="#about" className="hover:text-[color:var(--royal)] transition-colors">About</a>
           <a href="#features" className="hover:text-[color:var(--royal)] transition-colors">Features</a>
+          <button type="button" onClick={onWatchDemo} className="hover:text-[color:var(--royal)] transition-colors">Demo</button>
           <Link to="/dashboard" className="hover:text-[color:var(--royal)] transition-colors">Dashboard</Link>
         </nav>
         <Link
@@ -70,7 +76,7 @@ function LogoMark() {
   );
 }
 
-function Hero() {
+function Hero({ onWatchDemo }: { onWatchDemo: () => void }) {
   return (
     <section id="top" className="pt-32 pb-24" style={{ background: "var(--gradient-hero)" }}>
       <div className="mx-auto max-w-7xl px-6 grid lg:grid-cols-12 gap-12 items-center">
@@ -91,12 +97,13 @@ function Hero() {
             >
               Get Started <ArrowRight className="h-4 w-4" />
             </Link>
-            <a
-              href="#about"
+            <button
+              type="button"
+              onClick={onWatchDemo}
               className="inline-flex items-center gap-2 rounded-md border border-[color:var(--royal)]/30 bg-white px-6 py-3 text-sm font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)] transition-colors"
             >
               <Play className="h-4 w-4" /> Watch Demo
-            </a>
+            </button>
           </div>
           <div className="mt-10 grid grid-cols-3 gap-6 max-w-lg">
             {[
@@ -190,14 +197,27 @@ function About() {
   return (
     <section id="about" className="py-24 bg-white">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="max-w-3xl">
-          <div className="text-sm font-semibold uppercase tracking-wider text-[color:var(--ocean)]">Our mission</div>
-          <h2 className="mt-3 text-4xl md:text-5xl font-bold text-[color:var(--deep)]">
-            Replace blind applying with intentional, evidence-backed targeting.
-          </h2>
-          <p className="mt-5 text-lg text-[color:var(--slate-blue)]">
-            The average job seeker fires off 100+ applications a month with a single resume — burning weeks of energy on roles where they were never a real fit. FitCheck AI is the agentic filter between you and the apply button.
-          </p>
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <div className="text-sm font-semibold uppercase tracking-wider text-[color:var(--ocean)]">Our mission</div>
+            <h2 className="mt-3 text-4xl md:text-5xl font-bold text-[color:var(--deep)]">
+              Replace blind applying with intentional, evidence-backed targeting.
+            </h2>
+            <p className="mt-5 text-lg text-[color:var(--slate-blue)]">
+              The average job seeker fires off 100+ applications a month with a single resume — burning weeks of energy on roles where they were never a real fit. FitCheck AI is the agentic filter between you and the apply button.
+            </p>
+          </div>
+          <div className="relative">
+            <div className="absolute -inset-4 rounded-3xl opacity-25 blur-2xl" style={{ background: "var(--gradient-blue)" }} />
+            <img
+              src={aboutImage.url}
+              alt="Person reviewing a resume at a laptop while preparing a job application"
+              width={1280}
+              height={960}
+              loading="lazy"
+              className="relative rounded-2xl border border-border shadow-[var(--shadow-card)] w-full h-auto object-cover"
+            />
+          </div>
         </div>
 
         <div className="mt-14 grid md:grid-cols-2 gap-6">
@@ -324,6 +344,54 @@ function FooterCol({ title, links }: { title: string; links: { label: string; hr
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function DemoVideoModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="FitCheck AI demo video"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[color:var(--deep)]/80 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-4xl rounded-2xl overflow-hidden bg-black shadow-[var(--shadow-card)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 h-9 w-9 grid place-items-center rounded-full bg-white text-[color:var(--deep)] hover:bg-[color:var(--ice)] transition-colors"
+          aria-label="Close demo video"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="aspect-video w-full">
+          <iframe
+            title="FitCheck AI demo"
+            src="https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&modestbranding=1&playsinline=1"
+            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="w-full h-full border-0"
+          />
+        </div>
+      </div>
     </div>
   );
 }
