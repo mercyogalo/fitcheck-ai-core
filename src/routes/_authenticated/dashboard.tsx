@@ -455,11 +455,7 @@ function TopBar({ view }: { view: View }) {
     },
     history: {
       title: "Analysis History",
-      sub: "Every audit you've run, searchable and filterable.",
-    },
-    recommendations: {
-      title: "Recommended Jobs",
-      sub: "Curated roles worth a look. Mark the ones you actually apply to.",
+      sub: "Every audit you've run. Mark the ones you actually applied to.",
     },
     applications: {
       title: "My Applications",
