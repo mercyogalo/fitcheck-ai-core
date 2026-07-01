@@ -14,7 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analysis_history: {
+        Row: {
+          company_name: string
+          created_at: string
+          gaps: string[]
+          id: string
+          job_description: string
+          job_title: string
+          match_score: number
+          regional_fit: string | null
+          strengths: string[]
+          upskilling_steps: string[]
+          user_id: string
+          verdict: string
+        }
+        Insert: {
+          company_name: string
+          created_at?: string
+          gaps?: string[]
+          id?: string
+          job_description: string
+          job_title: string
+          match_score: number
+          regional_fit?: string | null
+          strengths?: string[]
+          upskilling_steps?: string[]
+          user_id: string
+          verdict: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          gaps?: string[]
+          id?: string
+          job_description?: string
+          job_title?: string
+          match_score?: number
+          regional_fit?: string | null
+          strengths?: string[]
+          upskilling_steps?: string[]
+          user_id?: string
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          resume_name: string | null
+          resume_text: string | null
+          skills: string[]
+          target_region: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          resume_name?: string | null
+          resume_text?: string | null
+          skills?: string[]
+          target_region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          resume_name?: string | null
+          resume_text?: string | null
+          skills?: string[]
+          target_region?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
