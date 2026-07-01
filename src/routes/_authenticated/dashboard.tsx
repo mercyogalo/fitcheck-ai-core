@@ -122,7 +122,6 @@ function Dashboard() {
   const [history, setHistory] = useState<AnalysisRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [trackerLoading, setTrackerLoading] = useState(true);
   const [trackerError, setTrackerError] = useState<string | null>(null);
