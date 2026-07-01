@@ -70,6 +70,8 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          city: string | null
+          country: string | null
           created_at: string
           email: string
           full_name: string | null
@@ -77,11 +79,12 @@ export type Database = {
           resume_name: string | null
           resume_text: string | null
           skills: string[]
-          target_region: string | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
           email: string
           full_name?: string | null
@@ -89,11 +92,12 @@ export type Database = {
           resume_name?: string | null
           resume_text?: string | null
           skills?: string[]
-          target_region?: string | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
           email?: string
           full_name?: string | null
@@ -101,7 +105,6 @@ export type Database = {
           resume_name?: string | null
           resume_text?: string | null
           skills?: string[]
-          target_region?: string | null
           updated_at?: string
         }
         Relationships: []
