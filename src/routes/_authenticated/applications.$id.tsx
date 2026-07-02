@@ -136,7 +136,15 @@ function ApplicationDetail() {
         .eq("id", app.id);
       if (err) throw err;
       setApp({ ...app, stage: next });
-      setRec(null);
+      setRecError(null);
+      // Load any recommendation previously saved for this new stage.
+      const { data: cached } = await supabase
+        .from("stage_recommendations")
+        .select("payload")
+        .eq("application_id", app.id)
+        .eq("stage", next)
+        .maybeSingle();
+      setRec(cached?.payload ? (cached.payload as unknown as Recommendation) : null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update stage");
     } finally {
@@ -160,14 +168,14 @@ function ApplicationDetail() {
     }
   }
 
-  async function fetchRecommendations() {
+  async function fetchRecommendations(regenerate = false) {
     if (!app) return;
     setRecLoading(true);
     setRecError(null);
     try {
       const { data, error: err } = await supabase.functions.invoke(
         "get-stage-recommendations",
-        { body: { application_id: app.id } },
+        { body: { application_id: app.id, regenerate } },
       );
       if (err) throw err;
       const payload = data as { recommendations?: Recommendation };
