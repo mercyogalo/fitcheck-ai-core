@@ -154,6 +154,47 @@ export type Database = {
         }
         Relationships: []
       }
+      stage_recommendations: {
+        Row: {
+          application_id: string
+          created_at: string
+          id: string
+          kind: string
+          payload: Json
+          stage: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          payload: Json
+          stage: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          stage?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_recommendations_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
