@@ -1,7 +1,8 @@
 // deno-lint-ignore-file no-explicit-any
 // get-stage-recommendations: authenticated edge function that returns
 // stage-specific preparation guidance for a job_applications row via the
-// Lovable AI Gateway. RLS-scoped read of the application + profile.
+// Lovable AI Gateway. Persists results to stage_recommendations so they are
+// not regenerated on every visit; pass { regenerate: true } to force a new run.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -100,6 +101,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Invalid JSON body" }, 400);
     }
     const applicationId = typeof body?.application_id === "string" ? body.application_id : "";
+    const regenerate = body?.regenerate === true;
     if (!/^[0-9a-f-]{36}$/i.test(applicationId)) {
       return jsonResponse({ error: "application_id (uuid) is required" }, 400);
     }
@@ -125,13 +127,31 @@ Deno.serve(async (req: Request) => {
       }, 400);
     }
 
+    // Return cached recommendation for this (application, stage) unless regenerate is requested.
+    if (!regenerate) {
+      const { data: cached } = await supabase
+        .from("stage_recommendations")
+        .select("payload, stage, updated_at")
+        .eq("application_id", applicationId)
+        .eq("stage", app.stage)
+        .maybeSingle();
+      if (cached?.payload) {
+        return jsonResponse({
+          recommendations: cached.payload,
+          stage: cached.stage,
+          cached: true,
+          updated_at: cached.updated_at,
+        });
+      }
+    }
+
+    if (!AI_API_KEY) return jsonResponse({ error: "AI gateway not configured" }, 500);
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("resume_text, full_name")
       .eq("id", userId)
       .maybeSingle();
-
-    if (!AI_API_KEY) return jsonResponse({ error: "AI gateway not configured" }, 500);
 
     const isTest = app.stage === "preparing_test";
     const systemPrompt = isTest
@@ -194,7 +214,25 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "AI response failed schema validation" }, 502);
     }
 
-    return jsonResponse({ recommendations: payload, stage: app.stage });
+    // Persist (upsert) so subsequent loads return the cached copy.
+    const { error: upsertErr } = await supabase
+      .from("stage_recommendations")
+      .upsert(
+        {
+          user_id: userId,
+          application_id: applicationId,
+          stage: app.stage,
+          kind: payload.kind,
+          payload: payload as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "application_id,stage" },
+      );
+    if (upsertErr) {
+      console.error("stage_recommendations upsert failed", upsertErr);
+    }
+
+    return jsonResponse({ recommendations: payload, stage: app.stage, cached: false });
   } catch (err) {
     console.error("get-stage-recommendations fatal", err);
     return jsonResponse({ error: "Internal server error" }, 500);
