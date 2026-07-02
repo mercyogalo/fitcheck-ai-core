@@ -330,7 +330,7 @@ function ApplicationDetail() {
             </div>
             <button
               type="button"
-              onClick={fetchRecommendations}
+              onClick={() => fetchRecommendations(rec !== null)}
               disabled={!canRecommend || recLoading}
               className="inline-flex items-center gap-2 rounded-md border border-[color:var(--royal)]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)] disabled:opacity-60"
             >
