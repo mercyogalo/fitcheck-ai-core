@@ -101,6 +101,19 @@ function ApplicationDetail() {
         const analysis = Array.isArray(raw.analysis) ? raw.analysis[0] ?? null : raw.analysis;
         setApp({ ...raw, analysis });
         setNotes(raw.notes ?? "");
+
+        // Hydrate any previously-generated recommendation for the current stage.
+        const { data: cached } = await supabase
+          .from("stage_recommendations")
+          .select("payload, stage")
+          .eq("application_id", raw.id)
+          .eq("stage", raw.stage)
+          .maybeSingle();
+        if (cached?.payload) {
+          setRec(cached.payload as unknown as Recommendation);
+        } else {
+          setRec(null);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load application");
