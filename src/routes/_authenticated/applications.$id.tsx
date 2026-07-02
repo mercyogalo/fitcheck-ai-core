@@ -101,6 +101,19 @@ function ApplicationDetail() {
         const analysis = Array.isArray(raw.analysis) ? raw.analysis[0] ?? null : raw.analysis;
         setApp({ ...raw, analysis });
         setNotes(raw.notes ?? "");
+
+        // Hydrate any previously-generated recommendation for the current stage.
+        const { data: cached } = await supabase
+          .from("stage_recommendations")
+          .select("payload, stage")
+          .eq("application_id", raw.id)
+          .eq("stage", raw.stage)
+          .maybeSingle();
+        if (cached?.payload) {
+          setRec(cached.payload as unknown as Recommendation);
+        } else {
+          setRec(null);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load application");
@@ -123,7 +136,15 @@ function ApplicationDetail() {
         .eq("id", app.id);
       if (err) throw err;
       setApp({ ...app, stage: next });
-      setRec(null);
+      setRecError(null);
+      // Load any recommendation previously saved for this new stage.
+      const { data: cached } = await supabase
+        .from("stage_recommendations")
+        .select("payload")
+        .eq("application_id", app.id)
+        .eq("stage", next)
+        .maybeSingle();
+      setRec(cached?.payload ? (cached.payload as unknown as Recommendation) : null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update stage");
     } finally {
@@ -147,14 +168,14 @@ function ApplicationDetail() {
     }
   }
 
-  async function fetchRecommendations() {
+  async function fetchRecommendations(regenerate = false) {
     if (!app) return;
     setRecLoading(true);
     setRecError(null);
     try {
       const { data, error: err } = await supabase.functions.invoke(
         "get-stage-recommendations",
-        { body: { application_id: app.id } },
+        { body: { application_id: app.id, regenerate } },
       );
       if (err) throw err;
       const payload = data as { recommendations?: Recommendation };
@@ -309,7 +330,7 @@ function ApplicationDetail() {
             </div>
             <button
               type="button"
-              onClick={fetchRecommendations}
+              onClick={() => fetchRecommendations(rec !== null)}
               disabled={!canRecommend || recLoading}
               className="inline-flex items-center gap-2 rounded-md border border-[color:var(--royal)]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)] disabled:opacity-60"
             >
