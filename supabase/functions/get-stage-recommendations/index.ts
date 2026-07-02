@@ -142,9 +142,9 @@ Deno.serve(async (req: Request) => {
 
     const resumeSnippet = (profile?.resume_text ?? "").slice(0, 8000);
     const userPrompt = isTest
-      ? `=== JOB (${app.job_title} @ ${app.company_name}) ===\n${app.job_description}\n\nProvide 6-10 topics, 4-6 focus areas, 3-5 resources.`
+      ? `=== JOB (${analysis.job_title} @ ${analysis.company_name}) ===\n${analysis.job_description}\n\nProvide 6-10 topics, 4-6 focus areas, 3-5 resources.`
       : `=== RESUME ===\n${resumeSnippet || "(candidate did not provide a resume)"}\n\n` +
-        `=== JOB (${app.job_title} @ ${app.company_name}) ===\n${app.job_description}\n\n` +
+        `=== JOB (${analysis.job_title} @ ${analysis.company_name}) ===\n${analysis.job_description}\n\n` +
         `Return 8-12 likely_questions with a suggested answer angle each, 4-6 behavioral_themes, and 4-6 smart_talking_points.`;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
