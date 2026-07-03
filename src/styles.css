@@ -70,8 +70,9 @@
   --input: oklch(0.92 0.02 250);
   --ring: var(--ocean);
 
-  --gradient-hero: linear-gradient(135deg, oklch(1 0 0) 0%, var(--ice) 60%, oklch(0.92 0.05 245) 100%);
-  --gradient-blue: linear-gradient(135deg, var(--royal), var(--ocean));
+  --gradient-hero: var(--royal);
+  --gradient-blue: var(--royal);
+
   --shadow-blue: 0 20px 50px -20px color-mix(in oklab, var(--royal) 35%, transparent);
   --shadow-card: 0 4px 18px -8px color-mix(in oklab, var(--slate-blue) 18%, transparent);
 }
