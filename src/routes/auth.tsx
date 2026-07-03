@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Target, Mail, Lock, ArrowRight, AlertCircle, ChevronLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -63,23 +62,9 @@ function AuthPage() {
     }
   }
 
-  async function onGoogle() {
-    setError(null);
-    setLoading(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/dashboard`,
-      });
-      if (result.error) throw result.error;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed");
-      setLoading(false);
-    }
-  }
-
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-white">
-      <div className="hidden lg:flex flex-col justify-between p-12 text-white" style={{ background: "var(--gradient-blue)" }}>
+      <div className="hidden lg:flex flex-col justify-between p-12 text-white bg-[color:var(--royal)]">
         <Link to="/" className="inline-flex items-center gap-2">
           <div className="h-8 w-8 rounded-md grid place-items-center bg-white/15">
             <Target className="h-4 w-4" strokeWidth={2.5} />
@@ -109,19 +94,7 @@ function AuthPage() {
               : "Get started in seconds. No credit card required."}
           </p>
 
-          <button
-            onClick={onGoogle}
-            disabled={loading}
-            className="mt-8 w-full inline-flex items-center justify-center gap-3 rounded-md border border-border bg-white px-4 py-2.5 text-sm font-semibold text-[color:var(--deep)] hover:bg-[color:var(--ice)] transition-colors disabled:opacity-50"
-          >
-            <GoogleIcon /> Continue with Google
-          </button>
-
-          <div className="my-6 flex items-center gap-3 text-xs text-[color:var(--slate-blue)]">
-            <div className="flex-1 h-px bg-border" /> or <div className="flex-1 h-px bg-border" />
-          </div>
-
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form onSubmit={onSubmit} className="mt-8 space-y-4">
             {mode === "signup" && (
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)]">Full name</label>
@@ -199,16 +172,5 @@ function AuthPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09Z" />
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.99.66-2.25 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z" />
-      <path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84Z" />
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.2 1.65l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84C6.71 7.29 9.14 5.38 12 5.38Z" />
-    </svg>
   );
 }
