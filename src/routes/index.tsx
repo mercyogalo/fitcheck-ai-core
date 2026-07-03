@@ -79,53 +79,90 @@ function LogoMark() {
 
 function Hero({ onWatchDemo }: { onWatchDemo: () => void }) {
   return (
-    <section id="top" className="pt-32 pb-24" style={{ background: "var(--gradient-hero)" }}>
+    <section id="top" className="pt-32 pb-24 bg-[color:var(--royal)]">
       <div className="mx-auto max-w-7xl px-6 grid lg:grid-cols-12 gap-12 items-center">
-        <div className="lg:col-span-7">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--royal)]/20 bg-white px-3 py-1 text-xs font-medium text-[color:var(--royal)]">
+        <motion.div
+          className="lg:col-span-7"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.05 }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur"
+          >
             <CircleDot className="h-3 w-3" /> Agentic resume auditing
-          </div>
-          <h1 className="mt-6 text-5xl md:text-6xl font-bold leading-[1.05] text-[color:var(--deep)]">
+          </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="mt-6 text-5xl md:text-6xl font-bold leading-[1.05] text-white"
+          >
             Stop wasting time on applications that don't fit.
-          </h1>
-          <p className="mt-5 text-lg md:text-xl text-[color:var(--slate-blue)] max-w-2xl">
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mt-5 text-lg md:text-xl text-white/85 max-w-2xl"
+          >
             Let an AI agent audit your resume against any job description instantly calculating real hiring probability, regional compliance, and the exact gaps standing between you and the offer.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-8 flex flex-wrap gap-3"
+          >
             <Link
               to="/dashboard"
-              className="inline-flex items-center gap-2 rounded-md bg-[color:var(--royal)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-blue)] hover:bg-[color:var(--ocean)] transition-colors"
+              className="inline-flex items-center gap-2 rounded-md bg-white px-6 py-3 text-sm font-semibold text-[color:var(--royal)] shadow-[var(--shadow-blue)] hover:bg-[color:var(--ice)] transition-colors"
             >
               Get Started <ArrowRight className="h-4 w-4" />
             </Link>
             <button
               type="button"
               onClick={onWatchDemo}
-              className="inline-flex items-center gap-2 rounded-md border border-[color:var(--royal)]/30 bg-white px-6 py-3 text-sm font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)] transition-colors"
+              className="inline-flex items-center gap-2 rounded-md border border-white/30 bg-transparent px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
             >
               <Play className="h-4 w-4" /> Watch Demo
             </button>
-          </div>
-          <div className="mt-10 grid grid-cols-3 gap-6 max-w-lg">
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.45 }}
+            className="mt-10 grid grid-cols-3 gap-6 max-w-lg"
+          >
             {[
               { k: "94%", v: "Match accuracy" },
               { k: "3s", v: "Avg. audit" },
               { k: "40+", v: "Regions modeled" },
             ].map((s) => (
               <div key={s.v}>
-                <div className="text-3xl font-bold text-[color:var(--royal)]">{s.k}</div>
-                <div className="text-xs text-[color:var(--slate-blue)] mt-1">{s.v}</div>
+                <div className="text-3xl font-bold text-white">{s.k}</div>
+                <div className="text-xs text-white/70 mt-1">{s.v}</div>
               </div>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
-        <div className="lg:col-span-5">
+        <motion.div
+          className="lg:col-span-5"
+          initial={{ opacity: 0, scale: 0.96, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.25, ease: "easeOut" }}
+        >
           <HeroCard />
-        </div>
+        </motion.div>
       </div>
     </section>
   );
+}
+
 }
 
 function HeroCard() {
