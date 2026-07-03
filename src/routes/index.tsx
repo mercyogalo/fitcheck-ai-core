@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-import aboutImage from "@/assets/about-applying.jpg.asset.json";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
