@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   Play,
@@ -11,9 +12,9 @@ import {
   Layers,
   ShieldCheck,
   CircleDot,
-  Github,
   X,
 } from "lucide-react";
+
 import aboutImage from "@/assets/about-applying.jpg.asset.json";
 
 export const Route = createFileRoute("/")({
