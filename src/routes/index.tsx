@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   Play,
@@ -11,10 +12,10 @@ import {
   Layers,
   ShieldCheck,
   CircleDot,
-  Github,
   X,
 } from "lucide-react";
-import aboutImage from "@/assets/about-applying.jpg.asset.json";
+
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -78,54 +79,91 @@ function LogoMark() {
 
 function Hero({ onWatchDemo }: { onWatchDemo: () => void }) {
   return (
-    <section id="top" className="pt-32 pb-24" style={{ background: "var(--gradient-hero)" }}>
+    <section id="top" className="pt-32 pb-24 bg-[color:var(--royal)]">
       <div className="mx-auto max-w-7xl px-6 grid lg:grid-cols-12 gap-12 items-center">
-        <div className="lg:col-span-7">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--royal)]/20 bg-white px-3 py-1 text-xs font-medium text-[color:var(--royal)]">
+        <motion.div
+          className="lg:col-span-7"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.05 }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur"
+          >
             <CircleDot className="h-3 w-3" /> Agentic resume auditing
-          </div>
-          <h1 className="mt-6 text-5xl md:text-6xl font-bold leading-[1.05] text-[color:var(--deep)]">
+          </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="mt-6 text-5xl md:text-6xl font-bold leading-[1.05] text-white"
+          >
             Stop wasting time on applications that don't fit.
-          </h1>
-          <p className="mt-5 text-lg md:text-xl text-[color:var(--slate-blue)] max-w-2xl">
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mt-5 text-lg md:text-xl text-white/85 max-w-2xl"
+          >
             Let an AI agent audit your resume against any job description instantly calculating real hiring probability, regional compliance, and the exact gaps standing between you and the offer.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-8 flex flex-wrap gap-3"
+          >
             <Link
               to="/dashboard"
-              className="inline-flex items-center gap-2 rounded-md bg-[color:var(--royal)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-blue)] hover:bg-[color:var(--ocean)] transition-colors"
+              className="inline-flex items-center gap-2 rounded-md bg-white px-6 py-3 text-sm font-semibold text-[color:var(--royal)] shadow-[var(--shadow-blue)] hover:bg-[color:var(--ice)] transition-colors"
             >
               Get Started <ArrowRight className="h-4 w-4" />
             </Link>
             <button
               type="button"
               onClick={onWatchDemo}
-              className="inline-flex items-center gap-2 rounded-md border border-[color:var(--royal)]/30 bg-white px-6 py-3 text-sm font-semibold text-[color:var(--royal)] hover:bg-[color:var(--ice)] transition-colors"
+              className="inline-flex items-center gap-2 rounded-md border border-white/30 bg-transparent px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
             >
               <Play className="h-4 w-4" /> Watch Demo
             </button>
-          </div>
-          <div className="mt-10 grid grid-cols-3 gap-6 max-w-lg">
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.45 }}
+            className="mt-10 grid grid-cols-3 gap-6 max-w-lg"
+          >
             {[
               { k: "94%", v: "Match accuracy" },
               { k: "3s", v: "Avg. audit" },
               { k: "40+", v: "Regions modeled" },
             ].map((s) => (
               <div key={s.v}>
-                <div className="text-3xl font-bold text-[color:var(--royal)]">{s.k}</div>
-                <div className="text-xs text-[color:var(--slate-blue)] mt-1">{s.v}</div>
+                <div className="text-3xl font-bold text-white">{s.k}</div>
+                <div className="text-xs text-white/70 mt-1">{s.v}</div>
               </div>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
-        <div className="lg:col-span-5">
+        <motion.div
+          className="lg:col-span-5"
+          initial={{ opacity: 0, scale: 0.96, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.25, ease: "easeOut" }}
+        >
           <HeroCard />
-        </div>
+        </motion.div>
       </div>
     </section>
   );
 }
+
+
 
 function HeroCard() {
   return (
@@ -198,7 +236,12 @@ function About() {
     <section id="about" className="py-24 bg-white">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div>
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
             <div className="text-sm font-semibold uppercase tracking-wider text-[color:var(--ocean)]">Our mission</div>
             <h2 className="mt-3 text-4xl md:text-5xl font-bold text-[color:var(--deep)]">
               Replace blind applying with intentional, evidence-backed targeting.
@@ -206,9 +249,14 @@ function About() {
             <p className="mt-5 text-lg text-[color:var(--slate-blue)]">
               The average job seeker fires off 100+ applications a month with a single resume burning weeks of energy on roles where they were never a real fit. FitCheck AI is the agentic filter between you and the apply button.
             </p>
-          </div>
-          <div className="relative">
-            <div className="absolute -inset-4 rounded-3xl opacity-25 blur-2xl" style={{ background: "var(--gradient-blue)" }} />
+          </motion.div>
+          <motion.div
+            className="relative"
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
             <img
               src="https://s3.amazonaws.com/shecodesio-production/uploads/files/000/180/693/original/ChatGPT_Image_Jul_1__2026__05_03_39_PM.png?1782914640"
               alt="Person reviewing a resume at a laptop while preparing a job application"
@@ -217,11 +265,17 @@ function About() {
               loading="lazy"
               className="relative rounded-2xl border border-border shadow-[var(--shadow-card)] w-full h-auto object-cover"
             />
-          </div>
+          </motion.div>
         </div>
 
         <div className="mt-14 grid md:grid-cols-2 gap-6">
-          <div className="rounded-2xl border border-border bg-[color:var(--ice)] p-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5 }}
+            className="rounded-2xl border border-border bg-[color:var(--ice)] p-8"
+          >
             <div className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)]">Before FitCheck</div>
             <h3 className="mt-3 text-2xl font-bold text-[color:var(--deep)]">Spray-and-pray</h3>
             <ul className="mt-5 space-y-3 text-sm text-[color:var(--slate-blue)]">
@@ -232,9 +286,15 @@ function About() {
                 </li>
               ))}
             </ul>
-          </div>
+          </motion.div>
 
-          <div className="rounded-2xl p-8 text-white" style={{ background: "var(--gradient-blue)" }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="rounded-2xl p-8 text-white bg-[color:var(--royal)]"
+          >
             <div className="text-xs font-semibold uppercase tracking-wider text-white/70">With FitCheck</div>
             <h3 className="mt-3 text-2xl font-bold">Targeted & intentional</h3>
             <ul className="mt-5 space-y-3 text-sm text-white/90">
@@ -245,7 +305,7 @@ function About() {
                 </li>
               ))}
             </ul>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
@@ -264,25 +324,39 @@ function Features() {
   return (
     <section id="features" className="py-24 bg-[color:var(--ice)]">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="max-w-2xl">
+        <motion.div
+          className="max-w-2xl"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="text-sm font-semibold uppercase tracking-wider text-[color:var(--ocean)]">Features</div>
           <h2 className="mt-3 text-4xl md:text-5xl font-bold text-[color:var(--deep)]">An agent that reads the JD the way a hiring manager does.</h2>
-        </div>
+        </motion.div>
         <div className="mt-14 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {items.map((f) => (
-            <div key={f.title} className="rounded-2xl bg-white border border-border p-6 hover:shadow-[var(--shadow-card)] transition-shadow">
+          {items.map((f, i) => (
+            <motion.div
+              key={f.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.5, delay: i * 0.06 }}
+              className="rounded-2xl bg-white border border-border p-6 hover:shadow-[var(--shadow-card)] transition-shadow"
+            >
               <div className="h-10 w-10 rounded-lg grid place-items-center bg-[color:var(--ice)] border border-border">
                 <f.icon className="h-5 w-5 text-[color:var(--royal)]" />
               </div>
               <h3 className="mt-5 font-display text-lg font-semibold text-[color:var(--deep)]">{f.title}</h3>
               <p className="mt-2 text-sm text-[color:var(--slate-blue)] leading-relaxed">{f.desc}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
     </section>
   );
 }
+
 
 function CtaBand() {
   return (
