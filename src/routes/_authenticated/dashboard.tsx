@@ -4,7 +4,7 @@ import {
   LayoutGrid,
   User,
   History,
-  Home,
+  
   LogOut,
   Upload,
   FileText,
