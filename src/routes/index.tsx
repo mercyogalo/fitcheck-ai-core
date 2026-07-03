@@ -163,7 +163,7 @@ function Hero({ onWatchDemo }: { onWatchDemo: () => void }) {
   );
 }
 
-}
+
 
 function HeroCard() {
   return (
