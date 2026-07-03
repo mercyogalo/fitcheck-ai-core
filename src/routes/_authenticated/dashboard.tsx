@@ -437,13 +437,6 @@ function Sidebar({
             </button>
           );
         })}
-        <Link
-          to="/"
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-[color:var(--slate-blue)] hover:bg-[color:var(--ice)] hover:text-[color:var(--royal)] transition-colors"
-        >
-          <Home className="h-4 w-4" />
-          Back to Home
-        </Link>
       </nav>
 
       <div className="p-3 border-t border-border">
