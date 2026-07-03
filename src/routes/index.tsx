@@ -236,7 +236,12 @@ function About() {
     <section id="about" className="py-24 bg-white">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div>
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
             <div className="text-sm font-semibold uppercase tracking-wider text-[color:var(--ocean)]">Our mission</div>
             <h2 className="mt-3 text-4xl md:text-5xl font-bold text-[color:var(--deep)]">
               Replace blind applying with intentional, evidence-backed targeting.
@@ -244,9 +249,14 @@ function About() {
             <p className="mt-5 text-lg text-[color:var(--slate-blue)]">
               The average job seeker fires off 100+ applications a month with a single resume burning weeks of energy on roles where they were never a real fit. FitCheck AI is the agentic filter between you and the apply button.
             </p>
-          </div>
-          <div className="relative">
-            <div className="absolute -inset-4 rounded-3xl opacity-25 blur-2xl" style={{ background: "var(--gradient-blue)" }} />
+          </motion.div>
+          <motion.div
+            className="relative"
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
             <img
               src="https://s3.amazonaws.com/shecodesio-production/uploads/files/000/180/693/original/ChatGPT_Image_Jul_1__2026__05_03_39_PM.png?1782914640"
               alt="Person reviewing a resume at a laptop while preparing a job application"
@@ -255,11 +265,17 @@ function About() {
               loading="lazy"
               className="relative rounded-2xl border border-border shadow-[var(--shadow-card)] w-full h-auto object-cover"
             />
-          </div>
+          </motion.div>
         </div>
 
         <div className="mt-14 grid md:grid-cols-2 gap-6">
-          <div className="rounded-2xl border border-border bg-[color:var(--ice)] p-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5 }}
+            className="rounded-2xl border border-border bg-[color:var(--ice)] p-8"
+          >
             <div className="text-xs font-semibold uppercase tracking-wider text-[color:var(--slate-blue)]">Before FitCheck</div>
             <h3 className="mt-3 text-2xl font-bold text-[color:var(--deep)]">Spray-and-pray</h3>
             <ul className="mt-5 space-y-3 text-sm text-[color:var(--slate-blue)]">
@@ -270,9 +286,15 @@ function About() {
                 </li>
               ))}
             </ul>
-          </div>
+          </motion.div>
 
-          <div className="rounded-2xl p-8 text-white" style={{ background: "var(--gradient-blue)" }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="rounded-2xl p-8 text-white bg-[color:var(--royal)]"
+          >
             <div className="text-xs font-semibold uppercase tracking-wider text-white/70">With FitCheck</div>
             <h3 className="mt-3 text-2xl font-bold">Targeted & intentional</h3>
             <ul className="mt-5 space-y-3 text-sm text-white/90">
@@ -283,7 +305,7 @@ function About() {
                 </li>
               ))}
             </ul>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
@@ -302,25 +324,39 @@ function Features() {
   return (
     <section id="features" className="py-24 bg-[color:var(--ice)]">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="max-w-2xl">
+        <motion.div
+          className="max-w-2xl"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="text-sm font-semibold uppercase tracking-wider text-[color:var(--ocean)]">Features</div>
           <h2 className="mt-3 text-4xl md:text-5xl font-bold text-[color:var(--deep)]">An agent that reads the JD the way a hiring manager does.</h2>
-        </div>
+        </motion.div>
         <div className="mt-14 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {items.map((f) => (
-            <div key={f.title} className="rounded-2xl bg-white border border-border p-6 hover:shadow-[var(--shadow-card)] transition-shadow">
+          {items.map((f, i) => (
+            <motion.div
+              key={f.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.5, delay: i * 0.06 }}
+              className="rounded-2xl bg-white border border-border p-6 hover:shadow-[var(--shadow-card)] transition-shadow"
+            >
               <div className="h-10 w-10 rounded-lg grid place-items-center bg-[color:var(--ice)] border border-border">
                 <f.icon className="h-5 w-5 text-[color:var(--royal)]" />
               </div>
               <h3 className="mt-5 font-display text-lg font-semibold text-[color:var(--deep)]">{f.title}</h3>
               <p className="mt-2 text-sm text-[color:var(--slate-blue)] leading-relaxed">{f.desc}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
     </section>
   );
 }
+
 
 function CtaBand() {
   return (
