@@ -289,8 +289,32 @@ function Sidebar({
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [signedAvatar, setSignedAvatar] = useState<string | null>(null);
 
-  const displayAvatar = preview || profile?.avatar_url || null;
+  // Resolve avatar_url (which stores a storage PATH) to a signed URL for the private bucket.
+  useEffect(() => {
+    let cancelled = false;
+    const raw = profile?.avatar_url ?? null;
+    if (!raw) {
+      setSignedAvatar(null);
+      return;
+    }
+    if (/^https?:\/\//i.test(raw)) {
+      setSignedAvatar(raw);
+      return;
+    }
+    (async () => {
+      const { data, error } = await supabase.storage
+        .from("avatars")
+        .createSignedUrl(raw, 60 * 60 * 24 * 7);
+      if (!cancelled && !error && data) setSignedAvatar(data.signedUrl);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.avatar_url]);
+
+  const displayAvatar = preview || signedAvatar;
 
   async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -324,11 +348,10 @@ function Sidebar({
         .from("avatars")
         .upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" });
       if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
-      const publicUrl = `${pub.publicUrl}?v=${Date.now()}`;
+      // Persist the storage PATH in the DB — signed URLs are generated on read.
       const { error: updErr } = await supabase
         .from("profiles")
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: path })
         .eq("id", uid);
       if (updErr) throw updErr;
       onAvatarUpdated();
@@ -344,6 +367,7 @@ function Sidebar({
       }, 800);
     }
   }
+
 
   return (
     <aside className="w-72 shrink-0 bg-white border-r border-border flex flex-col">
